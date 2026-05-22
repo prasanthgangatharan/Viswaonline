@@ -1,0 +1,41 @@
+{
+  "name": "lottery-backend",
+  "version": "1.0.0",
+  "description": "Lottery Internal Terminal Backend",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "start:dev": "ts-node -r tsconfig-paths/register src/main.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@nestjs/common": "^11.1.22",
+    "@nestjs/config": "^4.0.4",
+    "@nestjs/core": "^11.1.22",
+    "@nestjs/jwt": "^11.0.2",
+    "@nestjs/passport": "^11.0.5",
+    "@nestjs/platform-express": "^11.1.22",
+    "@nestjs/platform-socket.io": "^11.1.23",
+    "@nestjs/websockets": "^11.1.23",
+    "@supabase/supabase-js": "^2.106.1",
+    "bcrypt": "^6.0.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/node": "^25.9.1",
+    "@types/passport-jwt": "^4.0.1",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^6.0.3"
+  }
+}
