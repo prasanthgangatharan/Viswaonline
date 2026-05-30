@@ -16,30 +16,63 @@ export class DatabaseInitService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    await this.initSchema();
+    await this.runMigrations();
     await this.seedAdmin();
   }
 
-  private async initSchema(): Promise<void> {
+  private async runMigrations(): Promise<void> {
     const dbUrl = this.config.get<string>('DATABASE_URL');
     if (!dbUrl) {
-      this.logger.warn('DATABASE_URL not set — skipping automatic schema init');
+      this.logger.warn('DATABASE_URL not set — skipping migrations');
       return;
     }
 
-    const schemaPath = path.join(process.cwd(), 'schema.sql');
-    if (!fs.existsSync(schemaPath)) {
-      this.logger.warn('schema.sql not found — skipping schema init');
+    const migrationsDir = path.join(process.cwd(), 'migrations');
+    if (!fs.existsSync(migrationsDir)) {
+      this.logger.warn('migrations/ directory not found — skipping migrations');
       return;
     }
 
     const pool = new Pool({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
     try {
-      const sql = fs.readFileSync(schemaPath, 'utf8');
-      await pool.query(sql);
-      this.logger.log('Database schema verified / created successfully');
-    } catch (err: any) {
-      this.logger.error(`Schema init failed: ${err.message}`);
+      // Bootstrap the tracking table (runs outside a transaction so it always exists)
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+          name       TEXT        PRIMARY KEY,
+          applied_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+
+      const files = fs.readdirSync(migrationsDir)
+        .filter(f => f.endsWith('.sql'))
+        .sort();
+
+      const { rows } = await pool.query('SELECT name FROM schema_migrations');
+      const applied = new Set(rows.map((r: any) => r.name));
+
+      for (const file of files) {
+        if (applied.has(file)) {
+          this.logger.log(`[Migration] ${file} — already applied, skipping`);
+          continue;
+        }
+
+        const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+        this.logger.log(`[Migration] Running ${file}...`);
+
+        try {
+          await pool.query('BEGIN');
+          await pool.query(sql);
+          await pool.query('INSERT INTO schema_migrations (name) VALUES ($1)', [file]);
+          await pool.query('COMMIT');
+          this.logger.log(`[Migration] ${file} applied successfully`);
+        } catch (err: any) {
+          await pool.query('ROLLBACK');
+          this.logger.error(`[Migration] ${file} FAILED: ${err.message}`);
+          throw err;
+        }
+      }
+
+      this.logger.log('[Migration] All migrations up to date');
     } finally {
       await pool.end();
     }
