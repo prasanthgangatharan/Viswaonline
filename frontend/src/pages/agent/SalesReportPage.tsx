@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
 import api from '../../lib/agentApi';
+import { Pagination } from '../../components/Pagination';
 
 function fmt(n: number) { return `Rs.${Math.round(n).toLocaleString('en-IN')}`; }
+
+const PAGE_SIZE = 20;
 
 export function SalesReportPage() {
   const [bets, setBets] = useState<any[]>([]);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
 
   const fetch = async () => {
     setLoading(true);
@@ -14,57 +18,64 @@ export function SalesReportPage() {
     catch {} finally { setLoading(false); }
   };
 
-  useEffect(() => { fetch(); }, [date]);
+  useEffect(() => { fetch(); setPage(1); }, [date]);
 
   const total = bets.reduce((s, b) => s + Number(b.amount), 0);
-
-  const inp: React.CSSProperties = { border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', color: '#0f172a', fontSize: 13, background: '#fff' };
+  const paginated = bets.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>Sales Report</div>
-
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inp} />
-        <div style={{ fontSize: 13, color: '#64748b', background: '#f1f5f9', padding: '5px 12px', borderRadius: 8 }}>{bets.length} entries - {fmt(total)}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: '#2B3674', letterSpacing: -0.3 }}>Sales Report</div>
+        <div style={{ fontSize: 13, color: '#A3AED0', marginTop: 3, fontWeight: 500 }}>Your daily betting summary</div>
       </div>
 
-      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflowX: 'auto' }}>
-        <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
-              {['Ticket#', 'Lottery', 'Type', 'Number', 'Count', 'Amount', 'Time'].map((h) => (
-                <th key={h} style={{ padding: '12px 14px', textAlign: 'left', color: '#94a3b8', fontSize: 11, fontWeight: 600, letterSpacing: 0.5 }}>{h.toUpperCase()}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading && <tr><td colSpan={7} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>Loading...</td></tr>}
-            {!loading && bets.length === 0 && <tr><td colSpan={7} style={{ padding: 24, textAlign: 'center', color: '#94a3b8' }}>No bets found</td></tr>}
-            {bets.map((b: any) => (
-              <tr key={b.id} style={{ borderBottom: '1px solid #f8fafc' }}>
-                <td style={{ padding: '10px 14px', color: '#94a3b8', fontSize: 12 }}>{b.ticket_id}</td>
-                <td style={{ padding: '10px 14px', color: '#0f172a' }}>{b.lotteries?.name}</td>
-                <td style={{ padding: '10px 14px', fontWeight: 600, color: '#0284c7' }}>{b.type}</td>
-                <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a' }}>{b.number}</td>
-                <td style={{ padding: '10px 14px', color: '#64748b' }}>{b.count}</td>
-                <td style={{ padding: '10px 14px', fontWeight: 600, color: '#16a34a' }}>{fmt(b.amount)}</td>
-                <td style={{ padding: '10px 14px', color: '#94a3b8' }}>{new Date(b.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</td>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ border: '1.5px solid #E0E5F2', borderRadius: 12, padding: '10px 14px', color: '#2B3674', fontSize: 13, background: '#fff', fontFamily: 'inherit' }} />
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#2B73FF', background: '#EBF3FF', padding: '8px 14px', borderRadius: 12 }}>
+          {bets.length} entries · {fmt(total)}
+        </div>
+      </div>
+
+      <div style={{ background: '#fff', borderRadius: 20, overflow: 'hidden', boxShadow: '0 2px 16px rgba(112,144,176,0.1)' }}>
+        <div className="agent-table-scroll">
+          <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #F4F7FE', background: '#FAFBFF' }}>
+                {['Ticket#', 'Lottery', 'Type', 'Number', 'Count', 'Amount', 'Time'].map((h) => (
+                  <th key={h} style={{ padding: '14px 14px', textAlign: 'left', color: '#A3AED0', fontSize: 11, fontWeight: 700, letterSpacing: 0.8 }}>{h.toUpperCase()}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {loading && <tr><td colSpan={7} style={{ padding: 28, textAlign: 'center', color: '#A3AED0' }}>Loading...</td></tr>}
+              {!loading && bets.length === 0 && <tr><td colSpan={7} style={{ padding: 28, textAlign: 'center', color: '#A3AED0' }}>No bets found for this date</td></tr>}
+              {paginated.map((b: any) => (
+                <tr key={b.id} style={{ borderBottom: '1px solid #F4F7FE' }}>
+                  <td style={{ padding: '12px 14px', color: '#A3AED0', fontSize: 11, fontFamily: 'monospace' }}>{b.ticket_id}</td>
+                  <td style={{ padding: '12px 14px', color: '#2B3674', fontWeight: 600 }}>{b.lotteries?.name}</td>
+                  <td style={{ padding: '12px 14px', fontWeight: 800, color: '#2B73FF' }}>{b.type}</td>
+                  <td style={{ padding: '12px 14px', fontWeight: 800, color: '#2B3674', letterSpacing: 1 }}>{b.number}</td>
+                  <td style={{ padding: '12px 14px', color: '#A3AED0', fontWeight: 500 }}>{b.count}</td>
+                  <td style={{ padding: '12px 14px', fontWeight: 700, color: '#05CD99' }}>{fmt(b.amount)}</td>
+                  <td style={{ padding: '12px 14px', color: '#A3AED0', fontSize: 12 }}>{new Date(b.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <Pagination page={page} total={bets.length} pageSize={PAGE_SIZE} onChange={setPage} accent="#2B73FF" />
       </div>
 
       {bets.length > 0 && (
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '16px 20px', display: 'flex', gap: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+        <div style={{ background: '#fff', borderRadius: 20, padding: '20px 24px', display: 'flex', gap: 40, boxShadow: '0 2px 16px rgba(112,144,176,0.1)' }}>
           <div>
-            <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, letterSpacing: 0.5 }}>TOTAL ENTRIES</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: '#0284c7', marginTop: 4 }}>{bets.length}</div>
+            <div style={{ fontSize: 11, color: '#A3AED0', fontWeight: 700, letterSpacing: 0.8 }}>TOTAL ENTRIES</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: '#2B73FF', marginTop: 6 }}>{bets.length}</div>
           </div>
           <div>
-            <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, letterSpacing: 0.5 }}>TOTAL AMOUNT</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: '#16a34a', marginTop: 4 }}>{fmt(total)}</div>
+            <div style={{ fontSize: 11, color: '#A3AED0', fontWeight: 700, letterSpacing: 0.8 }}>TOTAL AMOUNT</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: '#05CD99', marginTop: 6 }}>{fmt(total)}</div>
           </div>
         </div>
       )}

@@ -24,7 +24,7 @@ export class DashboardService {
       .from('bets')
       .select('id, ticket_id, agent_id, lottery_id, type, number, count, amount, win_amount, created_at, users!bets_agent_id_fkey(username), lotteries(name)')
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(100);
 
     const totalSales = (bets || []).reduce((s, b) => s + Number(b.amount), 0);
     const winsPaid = (bets || []).reduce((s, b) => s + Number(b.win_amount), 0);

@@ -18,11 +18,12 @@ export class AgentsService {
   }
 
   async create(dto: CreateAgentDto) {
+    const username = dto.username.trim().toLowerCase();
     const hash = await bcrypt.hash(dto.password, 10);
     const { data: user, error: userErr } = await this.supabase
       .getClient()
       .from('users')
-      .insert({ username: dto.username, password_hash: hash, role: 'agent', status: 'active' })
+      .insert({ username, password_hash: hash, role: 'agent', status: 'active' })
       .select()
       .single();
     if (userErr) throw new ConflictException('Username already exists');
@@ -32,7 +33,7 @@ export class AgentsService {
       .from('agents')
       .insert({
         id: user.id,
-        username: user.username,
+        username,
         status: 'active',
         tab1_price: dto.tab1_price,
         tab2_price: dto.tab2_price,
@@ -48,8 +49,9 @@ export class AgentsService {
     const sb = this.supabase.getClient();
 
     if (dto.username) {
-      await sb.from('users').update({ username: dto.username }).eq('id', id);
-      await sb.from('agents').update({ username: dto.username }).eq('id', id);
+      const username = dto.username.trim().toLowerCase();
+      await sb.from('users').update({ username }).eq('id', id);
+      await sb.from('agents').update({ username }).eq('id', id);
     }
 
     if (dto.password) {

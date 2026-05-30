@@ -5,24 +5,30 @@ import { Trophy, ChevronUp, ChevronDown } from 'lucide-react';
 
 function checkWin(bet: any, winStr: string): boolean {
   const [d1, d2, d3] = winStr.split('');
-  const betNum = String(bet.number).padStart(Number(bet.tab), '0');
-  if (bet.tab === 1) {
+  const tabNum = Number(bet.tab);
+  const betNum = String(bet.number).padStart(tabNum, '0');
+  if (tabNum === 1) {
     if (bet.type === 'A') return betNum === d1;
     if (bet.type === 'B') return betNum === d2;
     if (bet.type === 'C') return betNum === d3;
-  } else if (bet.tab === 2) {
+  } else if (tabNum === 2) {
     if (bet.type === 'AB') return betNum === d1 + d2;
     if (bet.type === 'BC') return betNum === d2 + d3;
     if (bet.type === 'AC') return betNum === d1 + d3;
-  } else if (bet.tab === 3) {
-    return betNum === winStr;
+  } else if (tabNum === 3) {
+    if (bet.type === 'SUPER') return betNum === winStr;
+    if (bet.type === 'BOX') {
+      const sort = (s: string) => s.split('').sort().join('');
+      return sort(betNum) === sort(winStr);
+    }
   }
   return false;
 }
 
 const TYPE_COLOR: Record<string, string> = {
-  A: '#16a34a', B: '#dc2626', C: '#2563eb',
-  AB: '#d97706', BC: '#7c3aed', AC: '#0891b2',
+  A: '#05CD99', B: '#EE5D50', C: '#2B73FF',
+  AB: '#FFCE20', BC: '#9F7AEA', AC: '#39B8FF',
+  SUPER: '#FF8C42', BOX: '#7B61FF',
 };
 
 export function ShopResultPage() {
@@ -62,11 +68,14 @@ export function ShopResultPage() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>Shop Result</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: '#2B3674', letterSpacing: -0.3 }}>Shop Result</div>
+        <div style={{ fontSize: 13, color: '#A3AED0', marginTop: 3, fontWeight: 500 }}>Declared lottery results</div>
+      </div>
 
       {results.length === 0 && (
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 24, textAlign: 'center', color: '#94a3b8', fontSize: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+        <div style={{ background: '#fff', borderRadius: 20, padding: 28, textAlign: 'center', color: '#A3AED0', fontSize: 14, boxShadow: '0 2px 16px rgba(112,144,176,0.1)' }}>
           No results declared yet
         </div>
       )}
@@ -76,56 +85,63 @@ export function ShopResultPage() {
         const lotteryBets = myBets.filter(b => b.lottery_id === r.lottery_id);
         const winningBets = lotteryBets.filter(b => checkWin(b, winStr));
         const isExpanded = expanded.has(r.id);
+        const hasWin = winningBets.length > 0;
 
         return (
           <div
             key={r.id}
             className={flashIds.has(r.id) ? 'flash-green' : ''}
-            style={{ background: '#fff', border: `1px solid ${winningBets.length > 0 ? '#bbf7d0' : '#e2e8f0'}`, borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', transition: 'border 0.3s' }}
+            style={{
+              background: '#fff',
+              borderRadius: 20,
+              overflow: 'hidden',
+              boxShadow: hasWin ? '0 4px 20px rgba(5,205,153,0.15)' : '0 2px 16px rgba(112,144,176,0.1)',
+              transition: 'box-shadow 0.3s',
+            }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px' }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>{r.lotteries?.name}</div>
-                <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                <div style={{ fontWeight: 800, fontSize: 14, color: '#2B3674' }}>{r.lotteries?.name}</div>
+                <div style={{ fontSize: 11, color: '#A3AED0', marginTop: 3, fontWeight: 500 }}>
                   {new Date(r.lotteries?.draw_time).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 4 }}>
+              <div style={{ display: 'flex', gap: 5 }}>
                 {winStr.split('').map((d, i) => (
-                  <div key={i} style={{ width: 32, height: 38, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: '#16a34a', lineHeight: 1 }}>{d}</div>
+                  <div key={i} style={{ width: 34, height: 40, background: '#E6FAF5', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#05CD99' }}>{d}</div>
                   </div>
                 ))}
               </div>
 
-              {winningBets.length > 0 ? (
+              {hasWin ? (
                 <button
                   onClick={() => toggleExpand(r.id)}
-                  style={{ padding: '5px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 20, color: '#16a34a', fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}
+                  style={{ padding: '6px 14px', background: '#E6FAF5', border: 'none', borderRadius: 20, color: '#05CD99', fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}
                 >
-                  <Trophy size={12} />
+                  <Trophy size={13} />
                   {winningBets.length} WIN{winningBets.length > 1 ? 'S' : ''}
                   {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                 </button>
               ) : (
-                <div style={{ padding: '5px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 20, color: '#94a3b8', fontSize: 12, whiteSpace: 'nowrap' }}>
+                <div style={{ padding: '6px 14px', background: '#F4F7FE', borderRadius: 20, color: '#A3AED0', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
                   No win
                 </div>
               )}
             </div>
 
             {isExpanded && winningBets.length > 0 && (
-              <div style={{ borderTop: '1px solid #f0fdf4', padding: '10px 16px', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ borderTop: '1px solid #F4F7FE', padding: '12px 18px', background: '#FAFBFF', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {winningBets.map((b: any, i: number) => {
-                  const color = TYPE_COLOR[b.type] || '#94a3b8';
+                  const color = TYPE_COLOR[b.type] || '#A3AED0';
                   return (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fff', borderRadius: 8, padding: '8px 12px', border: '1px solid #e2e8f0' }}>
-                      <span style={{ width: 28, height: 28, borderRadius: 6, background: color + '18', border: `1px solid ${color}44`, color, fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{b.type}</span>
-                      <span style={{ fontWeight: 700, fontSize: 17, color: '#0f172a', letterSpacing: 2 }}>{String(b.number).padStart(b.tab, '0')}</span>
-                      <span style={{ fontSize: 12, color: '#94a3b8' }}>x{b.count}</span>
-                      {b.customer_name && <span style={{ fontSize: 11, color: '#64748b', background: '#f1f5f9', borderRadius: 4, padding: '2px 8px' }}>{b.customer_name}</span>}
-                      <span style={{ marginLeft: 'auto', padding: '2px 10px', background: '#16a34a', borderRadius: 10, fontSize: 11, fontWeight: 700, color: '#fff' }}>WON</span>
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fff', borderRadius: 12, padding: '10px 14px', boxShadow: '0 1px 6px rgba(112,144,176,0.08)' }}>
+                      <span style={{ width: 30, height: 30, borderRadius: 8, background: color + '18', color, fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{b.type}</span>
+                      <span style={{ fontWeight: 800, fontSize: 18, color: '#2B3674', letterSpacing: 2 }}>{String(b.number).padStart(b.tab, '0')}</span>
+                      <span style={{ fontSize: 12, color: '#A3AED0' }}>x{b.count}</span>
+                      {b.customer_name && <span style={{ fontSize: 11, color: '#2B3674', background: '#F4F7FE', borderRadius: 6, padding: '2px 8px', fontWeight: 600 }}>{b.customer_name}</span>}
+                      <span style={{ marginLeft: 'auto', padding: '3px 12px', background: '#05CD99', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#fff' }}>WON</span>
                     </div>
                   );
                 })}

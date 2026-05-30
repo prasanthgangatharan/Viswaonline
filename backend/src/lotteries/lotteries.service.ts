@@ -24,6 +24,9 @@ export class LotteriesService {
         draw_time: dto.draw_time,
         stop_betting_minutes: dto.stop_betting_minutes ?? 10,
         status: 'active',
+        tab1_max: dto.tab1_max ?? null,
+        tab2_max: dto.tab2_max ?? null,
+        tab3_max: dto.tab3_max ?? null,
       })
       .select()
       .single();
@@ -46,7 +49,10 @@ export class LotteriesService {
   }
 
   async delete(id: string) {
-    const { error } = await this.supabase.getClient().from('lotteries').delete().eq('id', id);
+    const sb = this.supabase.getClient();
+    await sb.from('results').delete().eq('lottery_id', id);
+    await sb.from('bets').delete().eq('lottery_id', id);
+    const { error } = await sb.from('lotteries').delete().eq('id', id);
     if (error) throw new Error(error.message);
     return { success: true };
   }

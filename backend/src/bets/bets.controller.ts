@@ -36,6 +36,12 @@ export class BetsController {
     return this.service.getNetPay(req.user.id);
   }
 
+  @Get('counts')
+  @Roles('agent')
+  lotteryCounts(@Query('lottery_id') lotteryId: string) {
+    return this.service.getLotteryCounts(lotteryId);
+  }
+
   @Get('risk-view')
   @Roles('admin')
   riskView() {

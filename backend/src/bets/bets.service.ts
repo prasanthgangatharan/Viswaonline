@@ -27,7 +27,7 @@ export class BetsService {
     const [{ data: lottery, error: lErr }, { data: agent, error: aErr }] = await Promise.all([
       this.supabase.getClient()
         .from('lotteries')
-        .select('status, draw_time, stop_betting_minutes')
+        .select('status, draw_time, stop_betting_minutes, tab1_max, tab2_max, tab3_max')
         .eq('id', dto.lottery_id)
         .single(),
       this.supabase.getClient()
@@ -45,6 +45,50 @@ export class BetsService {
       new Date(lottery.draw_time).getTime() - Number(lottery.stop_betting_minutes) * 60 * 1000;
     if (Date.now() >= bettingCloseMs) {
       throw new ForbiddenException('Betting window has closed for this lottery');
+    }
+
+    // Lock check: enforce per-number count limits set on the lottery
+    const maxByTab: (number | null)[] = [lottery.tab1_max ?? null, lottery.tab2_max ?? null, lottery.tab3_max ?? null];
+    const hasLock = maxByTab.some(m => m !== null);
+    if (hasLock) {
+      // Sum incoming counts per (number, tab, type)
+      const incoming: Record<string, number> = {};
+      for (const e of dto.entries) {
+        const key = `${e.number}_${e.tab}_${e.type}`;
+        incoming[key] = (incoming[key] || 0) + e.count;
+      }
+
+      // Fetch existing bet counts for the same lottery and affected numbers
+      const uniqueNumbers = [...new Set(dto.entries.map(e => e.number))];
+      const { data: existing } = await this.supabase.getClient()
+        .from('bets')
+        .select('number, tab, type, count')
+        .eq('lottery_id', dto.lottery_id)
+        .in('number', uniqueNumbers);
+
+      const existingTotals: Record<string, number> = {};
+      for (const b of existing || []) {
+        const key = `${b.number}_${b.tab}_${b.type}`;
+        existingTotals[key] = (existingTotals[key] || 0) + Number(b.count);
+      }
+
+      for (const [key, incomingCount] of Object.entries(incoming)) {
+        const parts = key.split('_');
+        const tabNum = Number(parts[1]);
+        const typeName = parts[2];
+        const max = maxByTab[tabNum - 1];
+        if (max === null) continue;
+        const already = existingTotals[key] || 0;
+        if (already + incomingCount > max) {
+          const numStr = String(parts[0]).padStart(tabNum, '0');
+          const remaining = max - already;
+          throw new ForbiddenException(
+            remaining > 0
+              ? `Only ${remaining} slot${remaining === 1 ? '' : 's'} remaining for ${numStr} (${typeName}). You requested ${incomingCount}.`
+              : `Number ${numStr} (${typeName}) is fully booked.`,
+          );
+        }
+      }
     }
 
     const prices = [agent.tab1_price, agent.tab2_price, agent.tab3_price];
@@ -120,6 +164,19 @@ export class BetsService {
       net_amount: g.total_sales - g.wins_paid,
       settlement_status: g.status === 'done' ? 'Settled' : 'Pending',
     }));
+  }
+
+  async getLotteryCounts(lotteryId: string): Promise<Record<string, number>> {
+    const { data } = await this.supabase.getClient()
+      .from('bets')
+      .select('number, tab, type, count')
+      .eq('lottery_id', lotteryId);
+    const counts: Record<string, number> = {};
+    for (const b of data || []) {
+      const key = `${b.number}_${b.tab}_${b.type}`;
+      counts[key] = (counts[key] || 0) + Number(b.count);
+    }
+    return counts;
   }
 
   async getRiskView() {

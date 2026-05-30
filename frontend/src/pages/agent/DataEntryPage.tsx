@@ -9,11 +9,22 @@ import { Trash2, Home } from 'lucide-react';
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
 
+function getPermutations(s: string): string[] {
+  if (s.length <= 1) return [s];
+  const result = new Set<string>();
+  for (let i = 0; i < s.length; i++) {
+    const rest = s.slice(0, i) + s.slice(i + 1);
+    for (const p of getPermutations(rest)) result.add(s[i] + p);
+  }
+  return Array.from(result);
+}
+
 interface Entry { type: string; number: string; count: string; tab: number; amount: number; }
 
 const TYPE_COLOR: Record<string, string> = {
-  A: '#16a34a', B: '#dc2626', C: '#2563eb',
-  AB: '#d97706', BC: '#7c3aed', AC: '#0891b2',
+  A: '#05CD99', B: '#EE5D50', C: '#2B73FF',
+  AB: '#FFCE20', BC: '#9F7AEA', AC: '#39B8FF',
+  SUPER: '#FF8C42', BOX: '#7B61FF',
 };
 
 export function DataEntryPage() {
@@ -29,6 +40,8 @@ export function DataEntryPage() {
   const [customer, setCustomer] = useState('');
   const [saving, setSaving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [setMode, setSetMode] = useState(false);
+  const [usedCounts, setUsedCounts] = useState<Record<string, number>>({});
   const { hours, minutes, seconds } = useCountdown(lottery?.draw_time || null);
 
   useEffect(() => {
@@ -44,6 +57,9 @@ export function DataEntryPage() {
       }
 
       setLottery(active);
+      api.get('/bets/counts', { params: { lottery_id: active.id } })
+        .then(({ data }) => setUsedCounts(data))
+        .catch(() => {});
 
       const remaining = closeMs - Date.now();
       const timer = setTimeout(() => {
@@ -74,38 +90,73 @@ export function DataEntryPage() {
     setTab(t);
     setNumInput('');
     setCntInput('');
-  };
-
-  const addEntry = (type: string): boolean => {
-    if (!numInput || numInput.length < tab || !cntInput || !lottery) return false;
-    const count = Number(cntInput);
-    if (isNaN(count) || count <= 0) return false;
-    setEntries(prev => [...prev, { type, number: numInput, count: cntInput, tab, amount: count * price }]);
-    return true;
+    if (t !== 3) setSetMode(false);
   };
 
   const getTypesForTab = (t: number) => {
     if (t === 1) return ['A', 'B', 'C'];
     if (t === 2) return ['AB', 'BC', 'AC'];
+    if (t === 3) return ['SUPER', 'BOX'];
     return [];
   };
 
   const handleTypeButton = (type: string) => {
-    if (type === 'ALL') {
-      if (!numInput || numInput.length < tab || !cntInput) {
-        toast.error('Enter number and count first');
-        return;
-      }
-      let added = false;
-      getTypesForTab(tab).forEach(t => { if (addEntry(t)) added = true; });
-      if (added) { setNumInput(''); setCntInput(''); }
-    } else {
-      if (!addEntry(type)) {
-        toast.error('Enter number and count first');
-        return;
-      }
-      setNumInput(''); setCntInput('');
+    if (!numInput || numInput.length < tab || !cntInput || !lottery) {
+      toast.error('Enter number and count first');
+      return;
     }
+    const count = Number(cntInput);
+    if (isNaN(count) || count <= 0) {
+      toast.error('Enter number and count first');
+      return;
+    }
+
+    const typesToAdd = type === 'ALL' ? getTypesForTab(tab) : [type];
+    const numsToAdd = setMode && tab === 3 ? getPermutations(numInput) : [numInput];
+
+    // Batch lock check: per (number, tab, type) — each type has its own independent budget
+    const maxes = [lottery.tab1_max, lottery.tab2_max, lottery.tab3_max];
+    const max = maxes[tab - 1];
+    if (max) {
+      const adding: Record<string, number> = {};
+      for (const t of typesToAdd) {
+        for (const n of numsToAdd) {
+          const key = `${Number(n)}_${tab}_${t}`;
+          adding[key] = (adding[key] || 0) + count;
+        }
+      }
+      for (const [key, totalAdding] of Object.entries(adding)) {
+        const parts = key.split('_');
+        const numVal = Number(parts[0]);
+        const entryType = parts[2];
+        const fromServer = usedCounts[key] || 0;
+        const fromLocal = entries
+          .filter(e => Number(e.number) === numVal && e.tab === tab && e.type === entryType)
+          .reduce((s, e) => s + Number(e.count), 0);
+        const remaining = max - fromServer - fromLocal;
+        if (remaining < totalAdding) {
+          const numStr = String(numVal).padStart(tab, '0');
+          toast.error(
+            remaining > 0
+              ? `Only ${remaining} slot${remaining === 1 ? '' : 's'} left for ${numStr} (${entryType})`
+              : `${numStr} (${entryType}) is fully booked`,
+            { duration: 4000 }
+          );
+          return;
+        }
+      }
+    }
+
+    // All checks passed — add all entries in one update
+    const newEntries: Entry[] = [];
+    for (const t of typesToAdd) {
+      for (const n of numsToAdd) {
+        newEntries.push({ type: t, number: n, count: cntInput, tab, amount: count * price });
+      }
+    }
+    setEntries(prev => [...prev, ...newEntries]);
+    setNumInput('');
+    setCntInput('');
   };
 
   const handleKey = (k: string) => {
@@ -140,7 +191,10 @@ export function DataEntryPage() {
       });
       toast.success(`Ticket ${ticketId} saved!`);
       navigate('/agent/home', { replace: true });
-    } catch { toast.error('Failed to save ticket'); }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg[0] : (msg || 'Failed to save ticket'), { duration: 5000 });
+    }
     finally { setSaving(false); }
   };
 
@@ -154,35 +208,36 @@ export function DataEntryPage() {
   const typeButtons = getTypesForTab(tab);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f1f5f9', position: 'relative' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#F4F7FE', position: 'relative' }}>
 
+      {/* Confirm Modal */}
       {showConfirm && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.4)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 24, width: '100%', maxWidth: 340, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
-            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>Confirm Ticket</div>
-            <div style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>{lottery?.name}</div>
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(27,37,89,0.3)', backdropFilter: 'blur(4px)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 24, padding: 28, width: '100%', maxWidth: 340, boxShadow: '0 24px 64px rgba(112,144,176,0.25)' }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#2B3674', marginBottom: 4 }}>Confirm Ticket</div>
+            <div style={{ fontSize: 13, color: '#A3AED0', marginBottom: 18, fontWeight: 500 }}>{lottery?.name}</div>
 
-            <div style={{ background: '#f8fafc', borderRadius: 10, padding: 12, marginBottom: 16, maxHeight: 200, overflowY: 'auto' }}>
+            <div style={{ background: '#F4F7FE', borderRadius: 14, padding: 14, marginBottom: 18, maxHeight: 200, overflowY: 'auto' }}>
               {entries.map((e, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f1f5f9', fontSize: 13 }}>
-                  <span style={{ color: TYPE_COLOR[e.type] || '#64748b', fontWeight: 700 }}>{e.type}</span>
-                  <span style={{ color: '#0f172a', fontWeight: 600 }}>{e.number}</span>
-                  <span style={{ color: '#94a3b8' }}>x{e.count}</span>
-                  <span style={{ color: '#16a34a', fontWeight: 700 }}>Rs.{e.amount}</span>
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #E0E5F2', fontSize: 13 }}>
+                  <span style={{ color: TYPE_COLOR[e.type] || '#A3AED0', fontWeight: 800 }}>{e.type}</span>
+                  <span style={{ color: '#2B3674', fontWeight: 700 }}>{e.number}</span>
+                  <span style={{ color: '#A3AED0' }}>x{e.count}</span>
+                  <span style={{ color: '#05CD99', fontWeight: 800 }}>Rs.{e.amount}</span>
                 </div>
               ))}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20, fontSize: 15, fontWeight: 700 }}>
-              <span style={{ color: '#64748b' }}>Total</span>
-              <span style={{ color: '#16a34a', fontSize: 18 }}>Rs.{totalAmount}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 22, fontSize: 15, fontWeight: 800 }}>
+              <span style={{ color: '#A3AED0' }}>Total</span>
+              <span style={{ color: '#05CD99', fontSize: 20 }}>Rs.{totalAmount}</span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <button onClick={() => setShowConfirm(false)} style={{ padding: '11px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, color: '#64748b', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <button onClick={() => setShowConfirm(false)} style={{ padding: '12px', background: '#F4F7FE', border: 'none', borderRadius: 12, color: '#A3AED0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
                 Cancel
               </button>
-              <button onClick={confirmSave} disabled={saving} style={{ padding: '11px', background: '#0284c7', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+              <button onClick={confirmSave} disabled={saving} style={{ padding: '12px', background: 'linear-gradient(135deg, #2B73FF 0%, #39B8FF 100%)', border: 'none', borderRadius: 12, color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer', boxShadow: '0 4px 14px rgba(43,115,255,0.3)' }}>
                 {saving ? 'Saving...' : 'Confirm'}
               </button>
             </div>
@@ -191,61 +246,75 @@ export function DataEntryPage() {
       )}
 
       {/* Top bar */}
-      <div style={{ background: '#fff', flexShrink: 0, borderBottom: '1px solid #e2e8f0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '5px 12px', borderBottom: '1px solid #f1f5f9' }}>
-          <button onClick={() => navigate('/agent/home')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 6, background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#64748b', cursor: 'pointer', flexShrink: 0 }}>
-            <Home size={14} />
+      <div style={{ background: '#fff', flexShrink: 0, borderBottom: '1px solid #F0F5FF', boxShadow: '0 2px 8px rgba(112,144,176,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 14px', borderBottom: '1px solid #F4F7FE' }}>
+          <button onClick={() => navigate('/agent/home')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 9, background: '#F4F7FE', border: 'none', color: '#2B3674', cursor: 'pointer', flexShrink: 0 }}>
+            <Home size={15} />
           </button>
-          <span style={{ fontSize: 11, color: '#94a3b8' }}>CNT <strong style={{ color: '#0f172a' }}>{entries.length}</strong></span>
-          <span style={{ fontSize: 11, color: '#94a3b8' }}>Rs <strong style={{ color: '#16a34a' }}>{totalAmount.toFixed(1)}</strong></span>
+          <span style={{ fontSize: 11, color: '#A3AED0', fontWeight: 500 }}>CNT <strong style={{ color: '#2B3674', fontWeight: 800 }}>{entries.length}</strong></span>
+          <span style={{ fontSize: 11, color: '#A3AED0', fontWeight: 500 }}>Rs <strong style={{ color: '#05CD99', fontWeight: 800 }}>{totalAmount.toFixed(1)}</strong></span>
           <span style={{ flex: 1 }} />
-          <div style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 700, color: '#0284c7' }}>
+          <div style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 800, color: '#2B73FF', background: '#EBF3FF', padding: '4px 10px', borderRadius: 8 }}>
             {pad(hours)}:{pad(minutes)}:{pad(seconds)}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '5px 12px' }}>
-          <div style={{ background: '#e0f2fe', borderRadius: 5, padding: '4px 8px', fontSize: 11, fontWeight: 700, color: '#0284c7', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '7px 14px' }}>
+          <div style={{ background: '#EBF3FF', borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 800, color: '#2B73FF', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {lottery?.name || '-'}
           </div>
-          <input value={customer} onChange={e => setCustomer(e.target.value)} placeholder="Customer" style={{ flex: 1, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 5, padding: '4px 8px', color: '#0f172a', fontSize: 12 }} />
-          <div style={{ display: 'flex', gap: 3 }}>
+          <input value={customer} onChange={e => setCustomer(e.target.value)} placeholder="Customer name" style={{ flex: 1, background: '#F4F7FE', border: '1.5px solid #E0E5F2', borderRadius: 8, padding: '5px 10px', color: '#2B3674', fontSize: 12 }} />
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
             {[1, 2, 3].map(t => (
-              <button key={t} onClick={() => changeTab(t)} style={{ width: 28, height: 28, borderRadius: 5, background: tab === t ? '#0284c7' : '#f1f5f9', border: `1px solid ${tab === t ? '#0284c7' : '#e2e8f0'}`, color: tab === t ? '#fff' : '#64748b', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>{t}</button>
+              <button key={t} onClick={() => changeTab(t)} style={{
+                width: 30, height: 30, borderRadius: 8,
+                background: tab === t ? 'linear-gradient(135deg, #2B73FF 0%, #39B8FF 100%)' : '#F4F7FE',
+                border: 'none',
+                color: tab === t ? '#fff' : '#A3AED0',
+                fontWeight: 800, fontSize: 13, cursor: 'pointer',
+              }}>{t}</button>
             ))}
+            {tab === 3 && (
+              <button onClick={() => setSetMode(p => !p)} style={{
+                height: 30, padding: '0 10px', borderRadius: 8, border: 'none',
+                background: setMode ? '#FF8C42' : '#F4F7FE',
+                color: setMode ? '#fff' : '#A3AED0',
+                fontWeight: 800, fontSize: 11, cursor: 'pointer', letterSpacing: 0.5,
+              }}>SET</button>
+            )}
           </div>
         </div>
       </div>
 
       {/* Entries List */}
-      <div style={{ flex: 1, overflowY: 'auto', minHeight: 100 }}>
+      <div style={{ flex: 1, overflowY: 'auto', minHeight: 100, background: '#fff' }}>
         {entries.length === 0 ? (
-          <div style={{ padding: '14px 16px', textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>
-            No entries yet - enter number and count, then tap type button
+          <div style={{ padding: '18px 16px', textAlign: 'center', color: '#A3AED0', fontSize: 12, fontWeight: 500 }}>
+            Enter number and count, then tap a type button
           </div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead style={{ position: 'sticky', top: 0, background: '#f8fafc', zIndex: 1, borderBottom: '1px solid #e2e8f0' }}>
+            <thead style={{ position: 'sticky', top: 0, background: '#FAFBFF', zIndex: 1, borderBottom: '1px solid #E0E5F2' }}>
               <tr>
                 {['TYPE', 'NUM', 'CNT', 'AMOUNT', ''].map(h => (
-                  <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: '#94a3b8', fontSize: 11, letterSpacing: 0.5, fontWeight: 600 }}>{h}</th>
+                  <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: '#A3AED0', fontSize: 10, letterSpacing: 0.8, fontWeight: 700 }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {entries.map((e, i) => {
-                const color = TYPE_COLOR[e.type] || '#64748b';
+                const color = TYPE_COLOR[e.type] || '#A3AED0';
                 return (
-                  <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <tr key={i} style={{ borderBottom: '1px solid #F4F7FE' }}>
                     <td style={{ padding: '10px 10px' }}>
-                      <span style={{ padding: '3px 8px', borderRadius: 5, fontSize: 12, fontWeight: 700, background: color + '18', border: `1px solid ${color}44`, color }}>
+                      <span style={{ padding: '3px 9px', borderRadius: 7, fontSize: 12, fontWeight: 800, background: color + '18', color }}>
                         {e.type}
                       </span>
                     </td>
-                    <td style={{ padding: '10px 10px', fontWeight: 700, fontSize: 17, color: '#0f172a', letterSpacing: 2 }}>{e.number}</td>
-                    <td style={{ padding: '10px 10px', fontSize: 15, color: '#64748b', fontWeight: 600 }}>{e.count}</td>
-                    <td style={{ padding: '10px 10px', fontSize: 14, fontWeight: 700, color: '#16a34a' }}>Rs.{e.amount}</td>
+                    <td style={{ padding: '10px 10px', fontWeight: 800, fontSize: 18, color: '#2B3674', letterSpacing: 2 }}>{e.number}</td>
+                    <td style={{ padding: '10px 10px', fontSize: 15, color: '#A3AED0', fontWeight: 700 }}>{e.count}</td>
+                    <td style={{ padding: '10px 10px', fontSize: 14, fontWeight: 800, color: '#05CD99' }}>Rs.{e.amount}</td>
                     <td style={{ padding: '10px 6px' }}>
-                      <button onClick={() => deleteEntry(i)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}>
+                      <button onClick={() => deleteEntry(i)} style={{ background: 'none', border: 'none', color: '#EE5D50', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}>
                         <Trash2 size={14} />
                       </button>
                     </td>
@@ -258,43 +327,59 @@ export function DataEntryPage() {
       </div>
 
       {/* Bottom Panel */}
-      <div style={{ background: '#0284c7', padding: '8px 10px 10px', flexShrink: 0 }}>
+      <div style={{ background: 'linear-gradient(135deg, #2B73FF 0%, #1A5ACC 100%)', padding: '10px 12px 12px', flexShrink: 0 }}>
 
         {/* Number / Count Display */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 7 }}>
-          <div style={{ background: inputPhase === 'number' ? '#fff' : '#e0f2fe', borderRadius: 7, padding: '6px 10px', textAlign: 'center', fontSize: 20, fontWeight: 700, color: numInput ? '#0f172a' : '#94a3b8', border: inputPhase === 'number' ? '2px solid #fbbf24' : '2px solid transparent', transition: 'border 0.15s', letterSpacing: 4 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+          <div style={{
+            background: inputPhase === 'number' ? '#fff' : 'rgba(255,255,255,0.2)',
+            borderRadius: 10, padding: '8px 12px', textAlign: 'center',
+            fontSize: 22, fontWeight: 800,
+            color: numInput ? '#2B3674' : (inputPhase === 'number' ? '#A3AED0' : 'rgba(255,255,255,0.6)'),
+            border: inputPhase === 'number' ? '2px solid #FFCE20' : '2px solid transparent',
+            letterSpacing: 6, transition: 'all 0.15s',
+          }}>
             {numInput || '_'.repeat(tab)}
           </div>
-          <div style={{ background: inputPhase === 'count' ? '#fff' : '#e0f2fe', borderRadius: 7, padding: '6px 10px', textAlign: 'center', fontSize: 20, fontWeight: 700, color: cntInput ? '#0f172a' : '#94a3b8', border: inputPhase === 'count' ? '2px solid #fbbf24' : '2px solid transparent', transition: 'border 0.15s' }}>
+          <div style={{
+            background: inputPhase === 'count' ? '#fff' : 'rgba(255,255,255,0.2)',
+            borderRadius: 10, padding: '8px 12px', textAlign: 'center',
+            fontSize: 22, fontWeight: 800,
+            color: cntInput ? '#2B3674' : (inputPhase === 'count' ? '#A3AED0' : 'rgba(255,255,255,0.6)'),
+            border: inputPhase === 'count' ? '2px solid #FFCE20' : '2px solid transparent',
+            transition: 'all 0.15s',
+          }}>
             {cntInput || 'Count'}
           </div>
         </div>
 
         {/* Type Buttons */}
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${typeButtons.length + 1}, 1fr)`, gap: 5, marginBottom: 7 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${typeButtons.length + 1}, 1fr)`, gap: 6, marginBottom: 8 }}>
           {typeButtons.map(t => (
-            <button key={t} onClick={() => handleTypeButton(t)} style={{ padding: '8px 4px', background: 'rgba(255,255,255,0.15)', border: `2px solid rgba(255,255,255,0.4)`, borderRadius: 7, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>{t}</button>
+            <button key={t} onClick={() => handleTypeButton(t)} style={{
+              padding: '9px 4px', background: 'rgba(255,255,255,0.18)',
+              border: '2px solid rgba(255,255,255,0.4)', borderRadius: 10,
+              color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer',
+            }}>{t}</button>
           ))}
-          {tab !== 3 && (
-            <button onClick={() => handleTypeButton('ALL')} style={{ padding: '8px 4px', background: 'rgba(255,255,255,0.25)', border: '2px solid rgba(255,255,255,0.5)', borderRadius: 7, color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>ALL</button>
-          )}
-          {tab === 3 && (
-            <button onClick={() => handleTypeButton('X')} style={{ padding: '8px 4px', background: 'rgba(255,255,255,0.25)', border: '2px solid rgba(255,255,255,0.5)', borderRadius: 7, color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>ADD</button>
-          )}
+          <button onClick={() => handleTypeButton('ALL')} style={{
+            padding: '9px 4px', background: 'rgba(255,255,255,0.28)',
+            border: '2px solid rgba(255,255,255,0.55)', borderRadius: 10,
+            color: '#fff', fontWeight: 800, fontSize: 12, cursor: 'pointer',
+          }}>ALL</button>
         </div>
 
         {/* Keypad */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 5, marginBottom: 7 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 8 }}>
           {keyRows.flat().map((k, i) => {
             const isSpecial = ['DEL', 'UNDO'].includes(k);
             return (
               <button key={i} onClick={() => handleKey(k)} style={{
-                padding: '10px 4px',
-                background: isSpecial ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.18)',
+                padding: '11px 4px',
+                background: isSpecial ? 'rgba(255,255,255,0.32)' : 'rgba(255,255,255,0.18)',
                 border: '1.5px solid rgba(255,255,255,0.3)',
-                borderRadius: 7, color: '#fff',
-                fontWeight: 700,
-                fontSize: isSpecial ? 11 : 18,
+                borderRadius: 10, color: '#fff',
+                fontWeight: 800, fontSize: isSpecial ? 11 : 20,
                 cursor: 'pointer',
               }}>{k}</button>
             );
@@ -303,13 +388,14 @@ export function DataEntryPage() {
 
         {/* Save Ticket */}
         <button onClick={() => entries.length && setShowConfirm(true)} disabled={!entries.length} style={{
-          width: '100%', padding: '10px',
+          width: '100%', padding: '12px',
           background: entries.length ? '#fff' : 'rgba(255,255,255,0.2)',
-          border: 'none', borderRadius: 7,
-          color: entries.length ? '#0284c7' : 'rgba(255,255,255,0.5)',
-          fontSize: 13, fontWeight: 700, letterSpacing: 0.5, cursor: entries.length ? 'pointer' : 'not-allowed',
+          border: 'none', borderRadius: 12,
+          color: entries.length ? '#2B73FF' : 'rgba(255,255,255,0.5)',
+          fontSize: 14, fontWeight: 800, cursor: entries.length ? 'pointer' : 'not-allowed',
+          boxShadow: entries.length ? '0 4px 14px rgba(0,0,0,0.15)' : 'none',
         }}>
-          {entries.length ? `Save Ticket - ${entries.length} entries - Rs.${totalAmount}` : 'Add entries to save'}
+          {entries.length ? `Save Ticket · ${entries.length} entries · Rs.${totalAmount}` : 'Add entries to save'}
         </button>
       </div>
     </div>

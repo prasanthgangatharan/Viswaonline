@@ -14,6 +14,11 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
+      const url: string = err.config?.url || '';
+      // Login endpoints returning 401 = wrong credentials — let the page's catch block handle it.
+      if (url.includes('/auth/')) return Promise.reject(err);
+
+      // Expired/revoked session on any other endpoint — clear and send to the right login.
       const role = localStorage.getItem('lottery_role');
       localStorage.removeItem('lottery_token');
       localStorage.removeItem('lottery_role');

@@ -9,12 +9,14 @@ import { ResultsModule } from './results/results.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { GatewayModule } from './gateway/gateway.module';
+import { DatabaseModule } from './database/database.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    DatabaseModule,
     SupabaseModule,
     GatewayModule,
     AuthModule,

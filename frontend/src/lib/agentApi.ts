@@ -27,7 +27,7 @@ agentApi.interceptors.request.use((config) => {
 agentApi.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401 || err.response?.status === 403) {
+    if (err.response?.status === 401) {
       clearAndRedirect();
     }
     return Promise.reject(err);
