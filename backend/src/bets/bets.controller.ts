@@ -42,6 +42,12 @@ export class BetsController {
     return this.service.getLotteryCounts(lotteryId);
   }
 
+  @Get('overflow')
+  @Roles('admin')
+  overflowBets(@Query('lottery_id') lotteryId?: string, @Query('agent_id') agentId?: string) {
+    return this.service.getOverflowBets(lotteryId, agentId);
+  }
+
   @Get('risk-view')
   @Roles('admin')
   riskView() {

@@ -1,7 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { SupabaseService } from '../supabase/supabase.service';
 import { AppGateway } from '../gateway/app.gateway';
 import { CreateLotteryDto } from './dto/create-lottery.dto';
+import { UpdateLotteryDto } from './dto/update-lottery.dto';
 
 @Injectable()
 export class LotteriesService {
@@ -16,6 +18,9 @@ export class LotteriesService {
   }
 
   async create(dto: CreateLotteryDto) {
+    if (new Date(dto.draw_time) <= new Date()) {
+      throw new BadRequestException('Draw time must be in the future');
+    }
     const { data, error } = await this.supabase
       .getClient()
       .from('lotteries')
@@ -35,7 +40,25 @@ export class LotteriesService {
     return data;
   }
 
-  async close(id: string) {
+  async update(id: string, dto: UpdateLotteryDto, adminId: string) {
+    await this.verifyAdminPassword(adminId, dto.admin_password);
+    if (dto.draw_time && new Date(dto.draw_time) <= new Date()) {
+      throw new BadRequestException('Draw time must be in the future');
+    }
+    const { admin_password, ...fields } = dto;
+    const { data, error } = await this.supabase
+      .getClient()
+      .from('lotteries')
+      .update(fields)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw new NotFoundException('Lottery not found');
+    return data;
+  }
+
+  async close(id: string, adminId: string, password: string) {
+    await this.verifyAdminPassword(adminId, password);
     const { data, error } = await this.supabase
       .getClient()
       .from('lotteries')
@@ -48,12 +71,26 @@ export class LotteriesService {
     return data;
   }
 
-  async delete(id: string) {
+  async delete(id: string, adminId: string, password: string) {
+    await this.verifyAdminPassword(adminId, password);
     const sb = this.supabase.getClient();
+    await sb.from('overflow_bets').delete().eq('lottery_id', id);
     await sb.from('results').delete().eq('lottery_id', id);
     await sb.from('bets').delete().eq('lottery_id', id);
     const { error } = await sb.from('lotteries').delete().eq('id', id);
     if (error) throw new Error(error.message);
     return { success: true };
+  }
+
+  private async verifyAdminPassword(adminId: string, password: string) {
+    const { data: user } = await this.supabase
+      .getClient()
+      .from('users')
+      .select('password_hash')
+      .eq('id', adminId)
+      .single();
+    if (!user) throw new ForbiddenException('Admin not found');
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) throw new ForbiddenException('Incorrect password');
   }
 }

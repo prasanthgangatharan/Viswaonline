@@ -16,7 +16,11 @@ export class DatabaseInitService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    await this.runMigrations();
+    try {
+      await this.runMigrations();
+    } catch (err: any) {
+      this.logger.warn(`[Migration] Skipped — could not connect to database: ${err.message}`);
+    }
     await this.seedAdmin();
   }
 

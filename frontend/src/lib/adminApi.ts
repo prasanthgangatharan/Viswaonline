@@ -27,7 +27,7 @@ adminApi.interceptors.request.use((config) => {
 adminApi.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401 || err.response?.status === 403) {
+    if (err.response?.status === 401) {
       clearAndRedirect();
     }
     return Promise.reject(err);

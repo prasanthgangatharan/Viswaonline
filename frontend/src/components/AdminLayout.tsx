@@ -1,16 +1,17 @@
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import adminApi from '../lib/adminApi';
-import { LayoutDashboard, Ticket, Users, List, Trophy, LogOut, ShieldAlert, Activity } from 'lucide-react';
+import { LayoutDashboard, Ticket, Users, List, Trophy, LogOut, ShieldAlert, Activity, ArrowUpFromLine } from 'lucide-react';
 
 const navItems = [
-  { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/admin/lotteries',  icon: Ticket,          label: 'Lotteries' },
-  { to: '/admin/agents',     icon: Users,            label: 'Agents' },
-  { to: '/admin/bets',       icon: List,             label: 'All Bets' },
-  { to: '/admin/results',    icon: Trophy,           label: 'Results' },
-  { to: '/admin/risk',       icon: ShieldAlert,      label: 'Risk View' },
-  { to: '/admin/monitor',    icon: Activity,         label: 'Live Monitor' },
+  { to: '/admin/dashboard', icon: LayoutDashboard,   label: 'Dashboard' },
+  { to: '/admin/lotteries',  icon: Ticket,            label: 'Lotteries' },
+  { to: '/admin/agents',     icon: Users,             label: 'Agents' },
+  { to: '/admin/bets',       icon: List,              label: 'All Bets' },
+  { to: '/admin/results',    icon: Trophy,            label: 'Results' },
+  { to: '/admin/risk',       icon: ShieldAlert,       label: 'Risk View' },
+  { to: '/admin/overflow',   icon: ArrowUpFromLine,   label: 'Overflow' },
+  { to: '/admin/monitor',    icon: Activity,          label: 'Live Monitor' },
 ];
 
 export function AdminLayout() {

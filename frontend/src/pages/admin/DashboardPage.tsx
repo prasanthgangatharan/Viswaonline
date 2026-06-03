@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../../lib/adminApi';
 import { useRealtimeBets } from '../../hooks/useRealtimeBets';
-import { TrendingUp, Users, DollarSign } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, ArrowUpFromLine } from 'lucide-react';
 import { Pagination } from '../../components/Pagination';
 
 const card: React.CSSProperties = {
@@ -39,6 +39,14 @@ const statCards = [
     bg: 'linear-gradient(135deg, #2B73FF 0%, #39B8FF 100%)',
     shadow: 'rgba(43,115,255,0.3)',
   },
+  {
+    key: 'overflow',
+    label: 'Overflow Today',
+    icon: ArrowUpFromLine,
+    color: '#F59E0B',
+    bg: 'linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)',
+    shadow: 'rgba(245,158,11,0.3)',
+  },
 ];
 
 const PAGE_SIZE = 10;
@@ -64,6 +72,7 @@ export function DashboardPage() {
     { value: fmt(stats?.totalSalesToday || 0), sub: `${stats?.ticketCount || 0} tickets sold` },
     { value: fmt(stats?.netProfit || 0), sub: `${stats?.margin || 0}% margin` },
     { value: stats?.activeAgents?.length || 0, sub: (stats?.activeAgents || []).slice(0, 2).map((a: any) => a.username).join(', ') || 'None online' },
+    { value: stats?.overflowTotal || 0, sub: `${stats?.overflowEventCount || 0} event${stats?.overflowEventCount === 1 ? '' : 's'}` },
   ];
 
   return (

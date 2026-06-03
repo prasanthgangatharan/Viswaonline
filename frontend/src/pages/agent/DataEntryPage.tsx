@@ -19,7 +19,7 @@ function getPermutations(s: string): string[] {
   return Array.from(result);
 }
 
-interface Entry { type: string; number: string; count: string; tab: number; amount: number; }
+interface Entry { type: string; number: string; count: string; tab: number; amount: number; overflowCount: number; }
 
 const TYPE_COLOR: Record<string, string> = {
   A: '#05CD99', B: '#EE5D50', C: '#2B73FF',
@@ -45,6 +45,9 @@ export function DataEntryPage() {
   const { hours, minutes, seconds } = useCountdown(lottery?.draw_time || null);
 
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    let closedHandler: ((closed: any) => void) | null = null;
+
     api.get('/lotteries').then(({ data }) => {
       const active = data.find((l: any) => l.id === selectedId && l.status === 'active');
       if (!active) { navigate('/agent/home', { replace: true }); return; }
@@ -62,24 +65,25 @@ export function DataEntryPage() {
         .catch(() => {});
 
       const remaining = closeMs - Date.now();
-      const timer = setTimeout(() => {
+      timer = setTimeout(() => {
         toast.error('Betting window has closed!');
         navigate('/agent/home', { replace: true });
       }, remaining);
 
-      const onLotteryClosed = (closed: any) => {
+      closedHandler = (closed: any) => {
         if (closed.id === active.id) {
           toast.error('This lottery has been closed by admin');
           navigate('/agent/home', { replace: true });
         }
       };
-      socket.on('lottery:closed', onLotteryClosed);
-
-      return () => {
-        clearTimeout(timer);
-        socket.off('lottery:closed', onLotteryClosed);
-      };
+      socket.on('lottery:closed', closedHandler);
     }).catch(() => navigate('/agent/home', { replace: true }));
+
+    // Cleanup returned synchronously so React always calls it on unmount
+    return () => {
+      clearTimeout(timer);
+      if (closedHandler) socket.off('lottery:closed', closedHandler);
+    };
   }, []);
 
   const price = user ? Number((user as any)[`tab${tab}_price`] ?? 0) : 0;
@@ -114,49 +118,42 @@ export function DataEntryPage() {
     const typesToAdd = type === 'ALL' ? getTypesForTab(tab) : [type];
     const numsToAdd = setMode && tab === 3 ? getPermutations(numInput) : [numInput];
 
-    // Batch lock check: per (number, tab, type) — each type has its own independent budget
     const maxes = [lottery.tab1_max, lottery.tab2_max, lottery.tab3_max];
     const max = maxes[tab - 1];
-    if (max) {
-      const adding: Record<string, number> = {};
-      for (const t of typesToAdd) {
-        for (const n of numsToAdd) {
-          const key = `${Number(n)}_${tab}_${t}`;
-          adding[key] = (adding[key] || 0) + count;
-        }
-      }
-      for (const [key, totalAdding] of Object.entries(adding)) {
-        const parts = key.split('_');
-        const numVal = Number(parts[0]);
-        const entryType = parts[2];
-        const fromServer = usedCounts[key] || 0;
-        const fromLocal = entries
-          .filter(e => Number(e.number) === numVal && e.tab === tab && e.type === entryType)
-          .reduce((s, e) => s + Number(e.count), 0);
-        const remaining = max - fromServer - fromLocal;
-        if (remaining < totalAdding) {
-          const numStr = String(numVal).padStart(tab, '0');
-          toast.error(
-            remaining > 0
-              ? `Only ${remaining} slot${remaining === 1 ? '' : 's'} left for ${numStr} (${entryType})`
-              : `${numStr} (${entryType}) is fully booked`,
-            { duration: 4000 }
-          );
-          return;
-        }
-      }
-    }
 
-    // All checks passed — add all entries in one update
     const newEntries: Entry[] = [];
     for (const t of typesToAdd) {
       for (const n of numsToAdd) {
-        newEntries.push({ type: t, number: n, count: cntInput, tab, amount: count * price });
+        let placedCount = count; // how many will actually be charged
+
+        if (max) {
+          const key = `${Number(n)}_${tab}_${t}`;
+          const fromServer = usedCounts[key] || 0;
+          const fromLocal = entries
+            .filter(e => Number(e.number) === Number(n) && e.tab === tab && e.type === t)
+            .reduce((s, e) => s + Number(e.count), 0);
+          const remaining = max - fromServer - fromLocal;
+          const numStr = String(Number(n)).padStart(tab, '0');
+
+          if (remaining <= 0) {
+            toast.error(`${numStr} (${t}) is fully booked`, { duration: 3000 });
+            continue;
+          }
+          if (count > remaining) {
+            // Partial fill: amount shown is for placed portion only; backend records the rest as overflow
+            toast(`Only ${remaining} of ${count} will be placed for ${numStr} (${t}); ${count - remaining} recorded as overflow`, { duration: 5000 });
+            placedCount = remaining;
+          }
+        }
+
+        newEntries.push({ type: t, number: n, count: String(placedCount), tab, amount: placedCount * price, overflowCount: count - placedCount });
       }
     }
-    setEntries(prev => [...prev, ...newEntries]);
-    setNumInput('');
-    setCntInput('');
+    if (newEntries.length > 0) {
+      setEntries(prev => [...prev, ...newEntries]);
+      setNumInput('');
+      setCntInput('');
+    }
   };
 
   const handleKey = (k: string) => {
@@ -183,13 +180,20 @@ export function DataEntryPage() {
     localStorage.setItem('ticket_seq', String(seq));
     const ticketId = `#${user?.username?.toUpperCase()}-${String(seq).padStart(4, '0')}`;
     try {
-      await api.post('/bets/batch', {
+      const { data: result } = await api.post('/bets/batch', {
         lottery_id: lottery.id,
         ticket_id: ticketId,
         customer_name: customer.trim() || undefined,
-        entries: entries.map(e => ({ type: e.type, number: Number(e.number), count: Number(e.count), tab: e.tab })),
+        entries: entries.map(e => ({ type: e.type, number: Number(e.number), count: Number(e.count), tab: e.tab, overflow_count: e.overflowCount ?? 0 })),
       });
-      toast.success(`Ticket ${ticketId} saved!`);
+      const overflows: any[] = result?.overflows ?? [];
+      if (overflows.length > 0) {
+        const totalOverflow = overflows.reduce((s: number, o: any) => s + o.overflow_count, 0);
+        const totalPlaced = (result?.placed ?? []).reduce((s: number, p: any) => s + Number(p.count), 0);
+        toast.success(`Ticket ${ticketId} saved! ${totalPlaced} placed, ${totalOverflow} as overflow`, { duration: 6000 });
+      } else {
+        toast.success(`Ticket ${ticketId} saved!`);
+      }
       navigate('/agent/home', { replace: true });
     } catch (err: any) {
       const msg = err?.response?.data?.message;

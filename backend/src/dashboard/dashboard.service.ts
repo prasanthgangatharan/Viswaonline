@@ -20,17 +20,25 @@ export class DashboardService {
       .select('id, username, status')
       .eq('status', 'active');
 
-    const { data: recentBets } = await sb
-      .from('bets')
-      .select('id, ticket_id, agent_id, lottery_id, type, number, count, amount, win_amount, created_at, users!bets_agent_id_fkey(username), lotteries(name)')
-      .order('created_at', { ascending: false })
-      .limit(100);
+    const [{ data: recentBets }, { data: overflows }] = await Promise.all([
+      sb.from('bets')
+        .select('id, ticket_id, agent_id, lottery_id, type, number, count, amount, win_amount, created_at, users!bets_agent_id_fkey(username), lotteries(name)')
+        .order('created_at', { ascending: false })
+        .limit(100),
+      sb.from('overflow_bets')
+        .select('overflow_count')
+        .gte('created_at', `${today}T00:00:00`)
+        .lte('created_at', `${today}T23:59:59`),
+    ]);
 
     const totalSales = (bets || []).reduce((s, b) => s + Number(b.amount), 0);
     const winsPaid = (bets || []).reduce((s, b) => s + Number(b.win_amount), 0);
     const netProfit = totalSales - winsPaid;
     const ticketCount = (bets || []).length;
     const margin = totalSales > 0 ? Math.round((netProfit / totalSales) * 100) : 0;
+
+    const overflowEventCount = (overflows || []).length;
+    const overflowTotal = (overflows || []).reduce((s, o) => s + Number(o.overflow_count), 0);
 
     const salesByGame: Record<string, number> = {};
     const agentPerf: Record<string, number> = {};
@@ -51,6 +59,8 @@ export class DashboardService {
       salesByGame,
       agentPerformance: agentPerf,
       recentBets: recentBets || [],
+      overflowEventCount,
+      overflowTotal,
     };
   }
 }

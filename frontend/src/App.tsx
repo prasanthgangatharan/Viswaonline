@@ -22,6 +22,7 @@ import { AllBetsPage } from './pages/admin/AllBetsPage';
 import { ResultsPage } from './pages/admin/ResultsPage';
 import { RiskViewPage } from './pages/admin/RiskViewPage';
 import { MonitorPage } from './pages/admin/MonitorPage';
+import { OverflowBetsPage } from './pages/admin/OverflowBetsPage';
 
 import { AgentLoginPage } from './pages/agent/AgentLoginPage';
 import { HomePage } from './pages/agent/HomePage';
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="bets" element={<AllBetsPage />} />
           <Route path="results" element={<ResultsPage />} />
           <Route path="risk" element={<RiskViewPage />} />
+          <Route path="overflow" element={<OverflowBetsPage />} />
           <Route path="monitor" element={<MonitorPage />} />
         </Route>
 

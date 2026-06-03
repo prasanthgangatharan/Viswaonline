@@ -47,18 +47,15 @@ export class BetsService {
       throw new ForbiddenException('Betting window has closed for this lottery');
     }
 
-    // Lock check: enforce per-number count limits set on the lottery
     const maxByTab: (number | null)[] = [lottery.tab1_max ?? null, lottery.tab2_max ?? null, lottery.tab3_max ?? null];
     const hasLock = maxByTab.some(m => m !== null);
-    if (hasLock) {
-      // Sum incoming counts per (number, tab, type)
-      const incoming: Record<string, number> = {};
-      for (const e of dto.entries) {
-        const key = `${e.number}_${e.tab}_${e.type}`;
-        incoming[key] = (incoming[key] || 0) + e.count;
-      }
 
-      // Fetch existing bet counts for the same lottery and affected numbers
+    // Entries that will actually be placed (count may be reduced to fit remaining capacity)
+    type EntryLike = { number: number; tab: number; type: string; count: number };
+    let adjustedEntries: EntryLike[] = [];
+    const overflowRows: any[] = [];
+
+    if (hasLock) {
       const uniqueNumbers = [...new Set(dto.entries.map(e => e.number))];
       const { data: existing } = await this.supabase.getClient()
         .from('bets')
@@ -72,27 +69,67 @@ export class BetsService {
         existingTotals[key] = (existingTotals[key] || 0) + Number(b.count);
       }
 
-      for (const [key, incomingCount] of Object.entries(incoming)) {
-        const parts = key.split('_');
-        const tabNum = Number(parts[1]);
-        const typeName = parts[2];
-        const max = maxByTab[tabNum - 1];
-        if (max === null) continue;
-        const already = existingTotals[key] || 0;
-        if (already + incomingCount > max) {
-          const numStr = String(parts[0]).padStart(tabNum, '0');
-          const remaining = max - already;
-          throw new ForbiddenException(
-            remaining > 0
-              ? `Only ${remaining} slot${remaining === 1 ? '' : 's'} remaining for ${numStr} (${typeName}). You requested ${incomingCount}.`
-              : `Number ${numStr} (${typeName}) is fully booked.`,
-          );
+      // Remaining budget per (number, tab, type) — shared across entries in this batch
+      const budgets: Record<string, number> = {};
+      for (const e of dto.entries) {
+        const key = `${e.number}_${e.tab}_${e.type}`;
+        if (key in budgets) continue;
+        const max = maxByTab[e.tab - 1];
+        budgets[key] = max === null ? Infinity : Math.max(0, max - (existingTotals[key] || 0));
+      }
+
+      for (const e of dto.entries) {
+        const key = `${e.number}_${e.tab}_${e.type}`;
+        const budget = budgets[key];
+        const explicitOverflow = e.overflow_count ?? 0;
+
+        if (budget <= 0) {
+          // Fully booked — skip entirely, no overflow record
+          continue;
+        }
+
+        if (e.count <= budget) {
+          // Placed count fits; record any explicit overflow the frontend pre-calculated
+          adjustedEntries.push(e);
+          budgets[key] -= e.count;
+          if (explicitOverflow > 0) {
+            overflowRows.push({
+              ticket_id: dto.ticket_id,
+              agent_id: agentId,
+              lottery_id: dto.lottery_id,
+              type: e.type,
+              number: e.number,
+              tab: e.tab,
+              requested_count: e.count + explicitOverflow,
+              placed_count: e.count,
+              overflow_count: explicitOverflow,
+              customer_name: dto.customer_name || null,
+            });
+          }
+        } else {
+          // Race condition: budget shrank between frontend check and now — split again
+          adjustedEntries.push({ ...e, count: budget });
+          overflowRows.push({
+            ticket_id: dto.ticket_id,
+            agent_id: agentId,
+            lottery_id: dto.lottery_id,
+            type: e.type,
+            number: e.number,
+            tab: e.tab,
+            requested_count: e.count + explicitOverflow,
+            placed_count: budget,
+            overflow_count: (e.count - budget) + explicitOverflow,
+            customer_name: dto.customer_name || null,
+          });
+          budgets[key] = 0;
         }
       }
+    } else {
+      adjustedEntries = dto.entries as EntryLike[];
     }
 
     const prices = [agent.tab1_price, agent.tab2_price, agent.tab3_price];
-    const rows = dto.entries.map((e) => ({
+    const rows = adjustedEntries.map((e) => ({
       ticket_id: dto.ticket_id,
       agent_id: agentId,
       lottery_id: dto.lottery_id,
@@ -104,10 +141,19 @@ export class BetsService {
       customer_name: dto.customer_name || null,
     }));
 
-    const { data, error } = await this.supabase.getClient().from('bets').insert(rows).select();
-    if (error) throw new Error(error.message);
-    (data as any[]).forEach(bet => this.gateway.emitBetPlaced(bet));
-    return data;
+    let placed: any[] = [];
+    if (rows.length > 0) {
+      const { data, error } = await this.supabase.getClient().from('bets').insert(rows).select();
+      if (error) throw new Error(error.message);
+      placed = data as any[];
+      placed.forEach(bet => this.gateway.emitBetPlaced(bet));
+    }
+
+    if (overflowRows.length > 0) {
+      await this.supabase.getClient().from('overflow_bets').insert(overflowRows);
+    }
+
+    return { placed, overflows: overflowRows };
   }
 
   async getMyTickets(agentId: string) {
@@ -177,6 +223,18 @@ export class BetsService {
       counts[key] = (counts[key] || 0) + Number(b.count);
     }
     return counts;
+  }
+
+  async getOverflowBets(lotteryId?: string, agentId?: string) {
+    let query = this.supabase.getClient()
+      .from('overflow_bets')
+      .select('*, users!overflow_bets_agent_id_fkey(username), lotteries(name)')
+      .order('created_at', { ascending: false });
+    if (lotteryId) query = query.eq('lottery_id', lotteryId);
+    if (agentId) query = query.eq('agent_id', agentId);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return data;
   }
 
   async getRiskView() {

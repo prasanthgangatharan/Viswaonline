@@ -6,6 +6,7 @@ export class BetEntryDto {
   @IsInt() @Min(0) @Max(999) number: number;
   @IsInt() @Min(1) @Max(100000) count: number;
   @IsIn([1, 2, 3]) tab: number;
+  @IsOptional() @IsInt() @Min(0) overflow_count?: number;
 }
 
 export class CreateBetsDto {
