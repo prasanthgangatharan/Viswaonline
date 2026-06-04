@@ -109,7 +109,7 @@ export function OverflowBetsPage() {
             </tbody>
           </table>
         </div>
-        <Pagination page={page} total={rows.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
+        <Pagination page={page} total={rows.length} pageSize={PAGE_SIZE} onChange={setPage} />
       </div>
     </div>
   );
