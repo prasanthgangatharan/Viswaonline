@@ -7,11 +7,6 @@ import { Edit2, Plus, Eye, EyeOff, Download, ShieldAlert, Link2, Copy, Check } f
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-const card: React.CSSProperties = {
-  background: '#fff',
-  borderRadius: 20,
-  boxShadow: 'none', border: '1px solid #F3F4F6',
-};
 const EMPTY_FORM = { username: '', password: '', tab1_price: '', tab2_price: '', tab3_price: '' };
 type ModalErrors = { username?: string; password?: string; tab1_price?: string; tab2_price?: string; tab3_price?: string };
 
