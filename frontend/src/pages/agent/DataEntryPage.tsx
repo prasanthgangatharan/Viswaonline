@@ -212,36 +212,49 @@ export function DataEntryPage() {
   const typeButtons = getTypesForTab(tab);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#F4F7FE', position: 'relative' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#F9FAFB', position: 'relative' }}>
 
       {/* Confirm Modal */}
       {showConfirm && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(27,37,89,0.3)', backdropFilter: 'blur(4px)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ background: '#fff', borderRadius: 24, padding: 28, width: '100%', maxWidth: 340, boxShadow: '0 24px 64px rgba(112,144,176,0.25)' }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#2B3674', marginBottom: 4 }}>Confirm Ticket</div>
-            <div style={{ fontSize: 13, color: '#A3AED0', marginBottom: 18, fontWeight: 500 }}>{lottery?.name}</div>
-
-            <div style={{ background: '#F4F7FE', borderRadius: 14, padding: 14, marginBottom: 18, maxHeight: 200, overflowY: 'auto' }}>
-              {entries.map((e, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #E0E5F2', fontSize: 13 }}>
-                  <span style={{ color: TYPE_COLOR[e.type] || '#A3AED0', fontWeight: 800 }}>{e.type}</span>
-                  <span style={{ color: '#2B3674', fontWeight: 700 }}>{e.number}</span>
-                  <span style={{ color: '#A3AED0' }}>x{e.count}</span>
-                  <span style={{ color: '#05CD99', fontWeight: 800 }}>Rs.{e.amount}</span>
-                </div>
-              ))}
+          <div style={{ background: '#fff', borderRadius: 20, padding: '22px 20px', width: '100%', maxWidth: 340, boxShadow: '0 16px 48px rgba(0,0,0,0.15)' }}>
+            {/* Header */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 17, fontWeight: 800, color: '#111827' }}>Confirm Ticket</div>
+              <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2, fontWeight: 600 }}>{lottery?.name}</div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 22, fontSize: 15, fontWeight: 800 }}>
-              <span style={{ color: '#A3AED0' }}>Total</span>
-              <span style={{ color: '#05CD99', fontSize: 20 }}>Rs.{totalAmount}</span>
+            {/* Entry rows */}
+            <div style={{ maxHeight: 200, overflowY: 'auto', marginBottom: 14 }}>
+              {entries.map((e, i) => {
+                const color = TYPE_COLOR[e.type] || '#6B7280';
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid #F3F4F6' }}>
+                    <span style={{ minWidth: 36, padding: '2px 7px', borderRadius: 6, fontSize: 12, fontWeight: 800, background: color + '20', color, textAlign: 'center', flexShrink: 0 }}>
+                      {e.type}
+                    </span>
+                    <span style={{ fontSize: 16, fontWeight: 800, color: '#111827', letterSpacing: 2, flex: 1 }}>
+                      {String(e.number).padStart(e.tab, '0')}
+                    </span>
+                    <span style={{ fontSize: 12, color: '#9CA3AF', fontWeight: 600 }}>×{e.count}</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: '#05CD99' }}>Rs.{e.amount}</span>
+                  </div>
+                );
+              })}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <button onClick={() => setShowConfirm(false)} style={{ padding: '12px', background: '#F4F7FE', border: 'none', borderRadius: 12, color: '#A3AED0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+            {/* Total */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderTop: '2px solid #F3F4F6', marginBottom: 18 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#6B7280' }}>TOTAL</span>
+              <span style={{ fontSize: 20, fontWeight: 800, color: '#05CD99' }}>Rs.{totalAmount}</span>
+            </div>
+
+            {/* Buttons */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <button onClick={() => setShowConfirm(false)} style={{ padding: '11px', background: '#F3F4F6', border: 'none', borderRadius: 12, color: '#6B7280', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
                 Cancel
               </button>
-              <button onClick={confirmSave} disabled={saving} style={{ padding: '12px', background: 'linear-gradient(135deg, #2B73FF 0%, #39B8FF 100%)', border: 'none', borderRadius: 12, color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer', boxShadow: '0 4px 14px rgba(43,115,255,0.3)' }}>
+              <button onClick={confirmSave} disabled={saving} style={{ padding: '11px', background: '#2B73FF', border: 'none', borderRadius: 12, color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
                 {saving ? 'Saving...' : 'Confirm'}
               </button>
             </div>
@@ -252,11 +265,11 @@ export function DataEntryPage() {
       {/* Top bar */}
       <div style={{ background: '#fff', flexShrink: 0, borderBottom: '1px solid #F0F5FF', boxShadow: '0 2px 8px rgba(112,144,176,0.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 14px', borderBottom: '1px solid #F4F7FE' }}>
-          <button onClick={() => navigate('/agent/home')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 9, background: '#F4F7FE', border: 'none', color: '#2B3674', cursor: 'pointer', flexShrink: 0 }}>
+          <button onClick={() => navigate('/agent/home')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 9, background: '#F9FAFB', border: 'none', color: '#111827', cursor: 'pointer', flexShrink: 0 }}>
             <Home size={15} />
           </button>
-          <span style={{ fontSize: 11, color: '#A3AED0', fontWeight: 500 }}>CNT <strong style={{ color: '#2B3674', fontWeight: 800 }}>{entries.length}</strong></span>
-          <span style={{ fontSize: 11, color: '#A3AED0', fontWeight: 500 }}>Rs <strong style={{ color: '#05CD99', fontWeight: 800 }}>{totalAmount.toFixed(1)}</strong></span>
+          <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 500 }}>CNT <strong style={{ color: '#111827', fontWeight: 800 }}>{entries.length}</strong></span>
+          <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 500 }}>Rs <strong style={{ color: '#05CD99', fontWeight: 800 }}>{totalAmount.toFixed(1)}</strong></span>
           <span style={{ flex: 1 }} />
           <div style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 800, color: '#2B73FF', background: '#EBF3FF', padding: '4px 10px', borderRadius: 8 }}>
             {pad(hours)}:{pad(minutes)}:{pad(seconds)}
@@ -266,22 +279,22 @@ export function DataEntryPage() {
           <div style={{ background: '#EBF3FF', borderRadius: 8, padding: '4px 10px', fontSize: 11, fontWeight: 800, color: '#2B73FF', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {lottery?.name || '-'}
           </div>
-          <input value={customer} onChange={e => setCustomer(e.target.value)} placeholder="Customer name" style={{ flex: 1, background: '#F4F7FE', border: '1.5px solid #E0E5F2', borderRadius: 8, padding: '5px 10px', color: '#2B3674', fontSize: 12 }} />
+          <input value={customer} onChange={e => setCustomer(e.target.value)} placeholder="Customer name" style={{ flex: 1, background: '#F9FAFB', border: '1.5px solid #E0E5F2', borderRadius: 8, padding: '5px 10px', color: '#111827', fontSize: 12 }} />
           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
             {[1, 2, 3].map(t => (
               <button key={t} onClick={() => changeTab(t)} style={{
                 width: 30, height: 30, borderRadius: 8,
-                background: tab === t ? 'linear-gradient(135deg, #2B73FF 0%, #39B8FF 100%)' : '#F4F7FE',
+                background: tab === t ? 'linear-gradient(135deg, #2B73FF 0%, #39B8FF 100%)' : '#F9FAFB',
                 border: 'none',
-                color: tab === t ? '#fff' : '#A3AED0',
+                color: tab === t ? '#fff' : '#6B7280',
                 fontWeight: 800, fontSize: 13, cursor: 'pointer',
               }}>{t}</button>
             ))}
             {tab === 3 && (
               <button onClick={() => setSetMode(p => !p)} style={{
                 height: 30, padding: '0 10px', borderRadius: 8, border: 'none',
-                background: setMode ? '#FF8C42' : '#F4F7FE',
-                color: setMode ? '#fff' : '#A3AED0',
+                background: setMode ? '#FF8C42' : '#F9FAFB',
+                color: setMode ? '#fff' : '#6B7280',
                 fontWeight: 800, fontSize: 11, cursor: 'pointer', letterSpacing: 0.5,
               }}>SET</button>
             )}
@@ -292,34 +305,36 @@ export function DataEntryPage() {
       {/* Entries List */}
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 100, background: '#fff' }}>
         {entries.length === 0 ? (
-          <div style={{ padding: '18px 16px', textAlign: 'center', color: '#A3AED0', fontSize: 12, fontWeight: 500 }}>
+          <div style={{ padding: '16px', textAlign: 'center', color: '#9CA3AF', fontSize: 12, fontWeight: 500 }}>
             Enter number and count, then tap a type button
           </div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead style={{ position: 'sticky', top: 0, background: '#FAFBFF', zIndex: 1, borderBottom: '1px solid #E0E5F2' }}>
+            <thead style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 1, borderBottom: '1px solid #F3F4F6' }}>
               <tr>
-                {['TYPE', 'NUM', 'CNT', 'AMOUNT', ''].map(h => (
-                  <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: '#A3AED0', fontSize: 10, letterSpacing: 0.8, fontWeight: 700 }}>{h}</th>
+                {['Type', 'Num', 'Cnt', 'Amount', ''].map(h => (
+                  <th key={h} style={{ padding: '7px 10px', textAlign: 'left', color: '#9CA3AF', fontSize: 11, fontWeight: 600 }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {entries.map((e, i) => {
-                const color = TYPE_COLOR[e.type] || '#A3AED0';
+                const color = TYPE_COLOR[e.type] || '#6B7280';
                 return (
-                  <tr key={i} style={{ borderBottom: '1px solid #F4F7FE' }}>
-                    <td style={{ padding: '10px 10px' }}>
-                      <span style={{ padding: '3px 9px', borderRadius: 7, fontSize: 12, fontWeight: 800, background: color + '18', color }}>
+                  <tr key={i} style={{ borderBottom: '1px solid #F9FAFB' }}>
+                    <td style={{ padding: '7px 10px' }}>
+                      <span style={{ padding: '2px 8px', borderRadius: 5, fontSize: 12, fontWeight: 700, background: color + '15', color }}>
                         {e.type}
                       </span>
                     </td>
-                    <td style={{ padding: '10px 10px', fontWeight: 800, fontSize: 18, color: '#2B3674', letterSpacing: 2 }}>{e.number}</td>
-                    <td style={{ padding: '10px 10px', fontSize: 15, color: '#A3AED0', fontWeight: 700 }}>{e.count}</td>
-                    <td style={{ padding: '10px 10px', fontSize: 14, fontWeight: 800, color: '#05CD99' }}>Rs.{e.amount}</td>
-                    <td style={{ padding: '10px 6px' }}>
-                      <button onClick={() => deleteEntry(i)} style={{ background: 'none', border: 'none', color: '#EE5D50', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}>
-                        <Trash2 size={14} />
+                    <td style={{ padding: '7px 10px', fontWeight: 700, fontSize: 15, color: '#111827', letterSpacing: 1 }}>
+                      {String(e.number).padStart(e.tab, '0')}
+                    </td>
+                    <td style={{ padding: '7px 10px', fontSize: 13, color: '#111827', fontWeight: 600 }}>{e.count}</td>
+                    <td style={{ padding: '7px 10px', fontSize: 13, fontWeight: 700, color: '#111827' }}>Rs.{e.amount}</td>
+                    <td style={{ padding: '7px 6px' }}>
+                      <button onClick={() => deleteEntry(i)} style={{ background: 'none', border: 'none', color: '#EE5D50', cursor: 'pointer', padding: 3, display: 'flex', alignItems: 'center' }}>
+                        <Trash2 size={13} />
                       </button>
                     </td>
                   </tr>
@@ -331,25 +346,25 @@ export function DataEntryPage() {
       </div>
 
       {/* Bottom Panel */}
-      <div style={{ background: 'linear-gradient(135deg, #2B73FF 0%, #1A5ACC 100%)', padding: '10px 12px 12px', flexShrink: 0 }}>
+      <div style={{ background: 'linear-gradient(135deg, #2B73FF 0%, #1A5ACC 100%)', padding: '7px 10px 10px', flexShrink: 0 }}>
 
         {/* Number / Count Display */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 6 }}>
           <div style={{
             background: inputPhase === 'number' ? '#fff' : 'rgba(255,255,255,0.2)',
-            borderRadius: 10, padding: '8px 12px', textAlign: 'center',
-            fontSize: 22, fontWeight: 800,
-            color: numInput ? '#2B3674' : (inputPhase === 'number' ? '#A3AED0' : 'rgba(255,255,255,0.6)'),
+            borderRadius: 9, padding: '5px 10px', textAlign: 'center',
+            fontSize: 18, fontWeight: 800,
+            color: numInput ? '#111827' : (inputPhase === 'number' ? '#6B7280' : 'rgba(255,255,255,0.6)'),
             border: inputPhase === 'number' ? '2px solid #FFCE20' : '2px solid transparent',
-            letterSpacing: 6, transition: 'all 0.15s',
+            letterSpacing: 5, transition: 'all 0.15s',
           }}>
             {numInput || '_'.repeat(tab)}
           </div>
           <div style={{
             background: inputPhase === 'count' ? '#fff' : 'rgba(255,255,255,0.2)',
-            borderRadius: 10, padding: '8px 12px', textAlign: 'center',
-            fontSize: 22, fontWeight: 800,
-            color: cntInput ? '#2B3674' : (inputPhase === 'count' ? '#A3AED0' : 'rgba(255,255,255,0.6)'),
+            borderRadius: 9, padding: '5px 10px', textAlign: 'center',
+            fontSize: 18, fontWeight: 800,
+            color: cntInput ? '#111827' : (inputPhase === 'count' ? '#6B7280' : 'rgba(255,255,255,0.6)'),
             border: inputPhase === 'count' ? '2px solid #FFCE20' : '2px solid transparent',
             transition: 'all 0.15s',
           }}>
@@ -358,32 +373,32 @@ export function DataEntryPage() {
         </div>
 
         {/* Type Buttons */}
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${typeButtons.length + 1}, 1fr)`, gap: 6, marginBottom: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${typeButtons.length + 1}, 1fr)`, gap: 5, marginBottom: 6 }}>
           {typeButtons.map(t => (
             <button key={t} onClick={() => handleTypeButton(t)} style={{
-              padding: '9px 4px', background: 'rgba(255,255,255,0.18)',
-              border: '2px solid rgba(255,255,255,0.4)', borderRadius: 10,
-              color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer',
+              padding: '7px 4px', background: 'rgba(255,255,255,0.18)',
+              border: '2px solid rgba(255,255,255,0.4)', borderRadius: 9,
+              color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer',
             }}>{t}</button>
           ))}
           <button onClick={() => handleTypeButton('ALL')} style={{
-            padding: '9px 4px', background: 'rgba(255,255,255,0.28)',
-            border: '2px solid rgba(255,255,255,0.55)', borderRadius: 10,
+            padding: '7px 4px', background: 'rgba(255,255,255,0.28)',
+            border: '2px solid rgba(255,255,255,0.55)', borderRadius: 9,
             color: '#fff', fontWeight: 800, fontSize: 12, cursor: 'pointer',
           }}>ALL</button>
         </div>
 
         {/* Keypad */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 5, marginBottom: 6 }}>
           {keyRows.flat().map((k, i) => {
             const isSpecial = ['DEL', 'UNDO'].includes(k);
             return (
               <button key={i} onClick={() => handleKey(k)} style={{
-                padding: '11px 4px',
+                padding: '9px 4px',
                 background: isSpecial ? 'rgba(255,255,255,0.32)' : 'rgba(255,255,255,0.18)',
                 border: '1.5px solid rgba(255,255,255,0.3)',
-                borderRadius: 10, color: '#fff',
-                fontWeight: 800, fontSize: isSpecial ? 11 : 20,
+                borderRadius: 9, color: '#fff',
+                fontWeight: 800, fontSize: isSpecial ? 11 : 18,
                 cursor: 'pointer',
               }}>{k}</button>
             );
@@ -392,11 +407,11 @@ export function DataEntryPage() {
 
         {/* Save Ticket */}
         <button onClick={() => entries.length && setShowConfirm(true)} disabled={!entries.length} style={{
-          width: '100%', padding: '12px',
+          width: '100%', padding: '10px',
           background: entries.length ? '#fff' : 'rgba(255,255,255,0.2)',
-          border: 'none', borderRadius: 12,
+          border: 'none', borderRadius: 10,
           color: entries.length ? '#2B73FF' : 'rgba(255,255,255,0.5)',
-          fontSize: 14, fontWeight: 800, cursor: entries.length ? 'pointer' : 'not-allowed',
+          fontSize: 13, fontWeight: 800, cursor: entries.length ? 'pointer' : 'not-allowed',
           boxShadow: entries.length ? '0 4px 14px rgba(0,0,0,0.15)' : 'none',
         }}>
           {entries.length ? `Save Ticket · ${entries.length} entries · Rs.${totalAmount}` : 'Add entries to save'}

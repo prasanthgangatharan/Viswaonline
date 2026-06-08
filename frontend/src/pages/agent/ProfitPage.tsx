@@ -17,13 +17,13 @@ export function ProfitPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div>
-        <div style={{ fontSize: 20, fontWeight: 800, color: '#2B3674', letterSpacing: -0.3 }}>My Profit</div>
-        <div style={{ fontSize: 13, color: '#A3AED0', marginTop: 3, fontWeight: 500 }}>Sales performance per draw</div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: '#111827', letterSpacing: -0.3 }}>My Profit</div>
+        <div style={{ fontSize: 13, color: '#6B7280', marginTop: 3, fontWeight: 500 }}>Sales performance per draw</div>
       </div>
 
       {/* Total Summary Card */}
       {!loading && rows.length > 0 && (
-        <div style={{ background: 'linear-gradient(135deg, #2B73FF 0%, #39B8FF 100%)', borderRadius: 20, padding: '24px', boxShadow: '0 8px 24px rgba(43,115,255,0.3)', color: '#fff' }}>
+        <div style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #A78BFA 100%)', borderRadius: 20, padding: '24px', boxShadow: '0 8px 24px rgba(124,58,237,0.3)', color: '#fff' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 46, height: 46, borderRadius: 14, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <TrendingUp size={22} color="#fff" strokeWidth={2.5} />
@@ -36,18 +36,18 @@ export function ProfitPage() {
         </div>
       )}
 
-      {loading && <div style={{ color: '#A3AED0', fontSize: 14, textAlign: 'center', padding: 24 }}>Loading...</div>}
+      {loading && <div style={{ color: '#6B7280', fontSize: 14, textAlign: 'center', padding: 24 }}>Loading...</div>}
       {!loading && rows.length === 0 && (
-        <div style={{ background: '#fff', borderRadius: 20, padding: 28, textAlign: 'center', color: '#A3AED0', fontSize: 14, boxShadow: '0 2px 16px rgba(112,144,176,0.1)' }}>
+        <div style={{ background: '#fff', borderRadius: 20, padding: 28, textAlign: 'center', color: '#6B7280', fontSize: 14, boxShadow: 'none', border: '1px solid #F3F4F6' }}>
           No profit data available
         </div>
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
         {rows.map((r: any, i) => (
-          <div key={i} style={{ background: '#fff', borderRadius: 20, padding: '22px', boxShadow: '0 2px 16px rgba(112,144,176,0.1)' }}>
-            <div style={{ fontWeight: 800, fontSize: 15, color: '#2B3674', marginBottom: 4 }}>{r.lottery_name}</div>
-            <div style={{ fontSize: 12, color: '#A3AED0', marginBottom: 18, fontWeight: 500 }}>
+          <div key={i} style={{ background: '#fff', borderRadius: 20, padding: '22px', boxShadow: 'none', border: '1px solid #F3F4F6' }}>
+            <div style={{ fontWeight: 800, fontSize: 15, color: '#111827', marginBottom: 4 }}>{r.lottery_name}</div>
+            <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 18, fontWeight: 500 }}>
               {new Date(r.draw_time).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
             </div>
             <div style={{ padding: '14px', background: '#E6FAF5', borderRadius: 14 }}>

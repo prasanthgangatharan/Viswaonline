@@ -36,8 +36,8 @@ export function MonitorPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#2B3674', letterSpacing: -0.3 }}>Live Monitor</div>
-          <div style={{ fontSize: 14, color: '#A3AED0', marginTop: 3, fontWeight: 500 }}>Real-time bet stream</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#111827', letterSpacing: -0.3 }}>Live Monitor</div>
+          <div style={{ fontSize: 14, color: '#6B7280', marginTop: 3, fontWeight: 500 }}>Real-time bet stream</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', background: '#E6FAF5', borderRadius: 20 }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#05CD99', boxShadow: '0 0 0 3px rgba(5,205,153,0.25)' }} />
@@ -45,32 +45,32 @@ export function MonitorPage() {
         </div>
       </div>
 
-      <div style={{ background: '#fff', borderRadius: 20, overflow: 'hidden', boxShadow: '0 2px 16px rgba(112,144,176,0.1)' }}>
+      <div style={{ background: '#fff', borderRadius: 20, overflow: 'hidden', boxShadow: 'none', border: '1px solid #F3F4F6' }}>
         <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 220px)', overflowY: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead style={{ position: 'sticky', top: 0, background: '#FAFBFF', zIndex: 1, borderBottom: '1px solid #F4F7FE' }}>
+            <thead style={{ position: 'sticky', top: 0, background: '#F9FAFB', zIndex: 1, borderBottom: '1px solid #F4F7FE' }}>
               <tr>
                 {['Time', 'Agent', 'Lottery', 'Type', 'Number', 'Count', 'Amount'].map((h) => (
-                  <th key={h} style={{ padding: '14px 16px', textAlign: 'left', color: '#A3AED0', fontSize: 11, fontWeight: 700, letterSpacing: 0.8 }}>{h.toUpperCase()}</th>
+                  <th key={h} style={{ padding: '14px 16px', textAlign: 'left', color: '#6B7280', fontSize: 11, fontWeight: 700, letterSpacing: 0.8 }}>{h.toUpperCase()}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {bets.length === 0 && (
-                <tr><td colSpan={7} style={{ padding: 36, textAlign: 'center', color: '#A3AED0' }}>Waiting for bets...</td></tr>
+                <tr><td colSpan={7} style={{ padding: 36, textAlign: 'center', color: '#6B7280' }}>Waiting for bets...</td></tr>
               )}
               {paginated.map((b: any, i) => (
                 <tr key={b.id} ref={i === 0 && page === 1 ? topRef : undefined} className={flashIds.has(b.id) ? 'flash-green' : ''} style={{ borderBottom: '1px solid #F4F7FE', transition: 'background 0.3s' }}>
-                  <td style={{ padding: '12px 16px', color: '#A3AED0', fontFamily: 'monospace', fontSize: 12 }}>
+                  <td style={{ padding: '12px 16px', color: '#6B7280', fontFamily: 'monospace', fontSize: 12 }}>
                     {new Date(b.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
                   </td>
-                  <td style={{ padding: '12px 16px', fontWeight: 700, color: '#2B3674' }}>{b.users?.username}</td>
+                  <td style={{ padding: '12px 16px', fontWeight: 700, color: '#111827' }}>{b.users?.username}</td>
                   <td style={{ padding: '12px 16px' }}>
-                    <span style={{ padding: '3px 10px', background: '#EFF4FB', color: '#4318FF', borderRadius: 8, fontSize: 11, fontWeight: 700 }}>{b.lotteries?.name}</span>
+                    <span style={{ padding: '3px 10px', background: '#F5F3FF', color: '#7C3AED', borderRadius: 8, fontSize: 11, fontWeight: 700 }}>{b.lotteries?.name}</span>
                   </td>
-                  <td style={{ padding: '12px 16px', fontWeight: 700, color: '#2B3674' }}>{b.type}</td>
-                  <td style={{ padding: '12px 16px', fontWeight: 800, fontSize: 16, color: '#2B3674', letterSpacing: 1 }}>{b.number}</td>
-                  <td style={{ padding: '12px 16px', color: '#A3AED0', fontWeight: 500 }}>{b.count}</td>
+                  <td style={{ padding: '12px 16px', fontWeight: 700, color: '#111827' }}>{b.type}</td>
+                  <td style={{ padding: '12px 16px', fontWeight: 800, fontSize: 16, color: '#111827', letterSpacing: 1 }}>{b.number}</td>
+                  <td style={{ padding: '12px 16px', color: '#6B7280', fontWeight: 500 }}>{b.count}</td>
                   <td style={{ padding: '12px 16px', fontWeight: 700, color: '#05CD99' }}>{fmt(b.amount)}</td>
                 </tr>
               ))}
