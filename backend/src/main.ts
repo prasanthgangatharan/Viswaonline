@@ -5,11 +5,15 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const extraOrigins = (process.env.FRONTEND_URL ?? '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
   const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:4173',
-    process.env.FRONTEND_URL,
-  ].filter(Boolean) as string[];
+    ...extraOrigins,
+  ];
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin || allowedOrigins.includes(origin)) {
@@ -26,5 +30,7 @@ async function bootstrap() {
   const port = process.env.PORT || 3000;
   await app.listen(port);
   console.log(`Lottery backend running on http://localhost:${port}`);
+  console.log(`FRONTEND_URL=${process.env.FRONTEND_URL}`);
+  console.log(`ALLOWED_ORIGINS=${JSON.stringify(allowedOrigins)}`);
 }
 bootstrap();
