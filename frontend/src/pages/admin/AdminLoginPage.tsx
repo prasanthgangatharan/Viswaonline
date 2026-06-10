@@ -45,9 +45,9 @@ export function AdminLoginPage() {
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ width: 64, height: 64, borderRadius: 20, background: 'linear-gradient(135deg, #4318FF 0%, #9F7AEA 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', boxShadow: '0 10px 28px rgba(124,58,237,0.3)' }}>
-            <span style={{ fontSize: 26, fontWeight: 800, color: '#fff' }}>L</span>
+            <span style={{ fontSize: 26, fontWeight: 800, color: '#fff' }}>V</span>
           </div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#111827', letterSpacing: -0.5 }}>LottoAdmin</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: '#111827', letterSpacing: -0.5 }}>Viswa Online</div>
           <div style={{ fontSize: 14, color: '#6B7280', marginTop: 6, fontWeight: 500 }}>Sign in to your admin panel</div>
         </div>
 
@@ -79,11 +79,6 @@ export function AdminLoginPage() {
             </button>
           </form>
 
-          <div style={{ textAlign: 'center', marginTop: 24 }}>
-            <a href="/agent/login" style={{ fontSize: 13, color: '#6B7280', textDecoration: 'none', fontWeight: 500 }}>
-              Switch to Agent Login →
-            </a>
-          </div>
         </div>
       </div>
     </div>
