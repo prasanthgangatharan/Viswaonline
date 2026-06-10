@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../../lib/agentApi';
 import socket from '../../lib/socket';
-import { Trophy, ChevronUp, ChevronDown } from 'lucide-react';
+import { Trophy, ChevronUp, ChevronDown, FileText, ExternalLink } from 'lucide-react';
 
 function checkWin(bet: any, winStr: string): boolean {
   const [d1, d2, d3] = winStr.split('');
@@ -115,20 +115,28 @@ export function ShopResultPage() {
                 ))}
               </div>
 
-              {hasWin ? (
-                <button
-                  onClick={() => toggleExpand(r.id)}
-                  style={{ padding: '6px 14px', background: '#E6FAF5', border: 'none', borderRadius: 20, color: '#05CD99', fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}
-                >
-                  <Trophy size={13} />
-                  {winningBets.length} WIN{winningBets.length > 1 ? 'S' : ''}
-                  {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                </button>
-              ) : (
-                <div style={{ padding: '6px 14px', background: '#F9FAFB', borderRadius: 20, color: '#6B7280', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                  No win
-                </div>
-              )}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                {r.document_url && (
+                  <a href={r.document_url} target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: '#F0F4FF', border: '1px solid #C7D2FE', borderRadius: 20, color: '#4318FF', fontSize: 11, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                    <FileText size={11} /> Result Doc <ExternalLink size={10} />
+                  </a>
+                )}
+                {hasWin ? (
+                  <button
+                    onClick={() => toggleExpand(r.id)}
+                    style={{ padding: '6px 14px', background: '#E6FAF5', border: 'none', borderRadius: 20, color: '#05CD99', fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 5 }}
+                  >
+                    <Trophy size={13} />
+                    {winningBets.length} WIN{winningBets.length > 1 ? 'S' : ''}
+                    {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  </button>
+                ) : (
+                  <div style={{ padding: '6px 14px', background: '#F9FAFB', borderRadius: 20, color: '#6B7280', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    No win
+                  </div>
+                )}
+              </div>
             </div>
 
             {isExpanded && winningBets.length > 0 && (

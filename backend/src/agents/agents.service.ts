@@ -1,4 +1,4 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, ForbiddenException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateAgentDto, UpdateAgentDto, ResetPasswordDto } from './dto/create-agent.dto';
@@ -94,5 +94,28 @@ export class AgentsService {
       .single();
     if (error) throw new Error(error.message);
     return data;
+  }
+
+  async deleteAgent(id: string, adminId: string, password: string) {
+    await this.verifyAdminPassword(adminId, password);
+    const sb = this.supabase.getClient();
+    await sb.from('overflow_bets').delete().eq('agent_id', id);
+    await sb.from('bets').delete().eq('agent_id', id);
+    // agents row cascades from users delete
+    const { error } = await sb.from('users').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+    return { success: true };
+  }
+
+  private async verifyAdminPassword(adminId: string, password: string) {
+    const { data: user } = await this.supabase
+      .getClient()
+      .from('users')
+      .select('password_hash')
+      .eq('id', adminId)
+      .single();
+    if (!user) throw new ForbiddenException('Admin not found');
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) throw new ForbiddenException('Incorrect password');
   }
 }

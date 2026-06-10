@@ -1,10 +1,11 @@
-import { Controller, Get, Post, Patch, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Request } from '@nestjs/common';
 import { AgentsService } from './agents.service';
 import { CreateAgentDto, UpdateAgentDto, ResetPasswordDto } from './dto/create-agent.dto';
 import { Roles } from '../auth/roles.decorator';
 import { IsString } from 'class-validator';
 
 class StatusDto { @IsString() status: string; }
+class DeleteAgentDto { @IsString() admin_password: string; }
 
 @Controller('agents')
 @Roles('admin')
@@ -28,5 +29,10 @@ export class AgentsController {
   @Patch(':id/status')
   toggleStatus(@Param('id') id: string, @Body() dto: StatusDto) {
     return this.service.toggleStatus(id, dto.status);
+  }
+
+  @Delete(':id')
+  deleteAgent(@Param('id') id: string, @Body() dto: DeleteAgentDto, @Request() req: any) {
+    return this.service.deleteAgent(id, req.user.sub, dto.admin_password);
   }
 }

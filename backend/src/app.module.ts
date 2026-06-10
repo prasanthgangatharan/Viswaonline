@@ -10,6 +10,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { GatewayModule } from './gateway/gateway.module';
 import { DatabaseModule } from './database/database.module';
+import { CleanupModule } from './cleanup/cleanup.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 
@@ -25,6 +26,7 @@ import { RolesGuard } from './auth/roles.guard';
     AgentsModule,
     ResultsModule,
     DashboardModule,
+    CleanupModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

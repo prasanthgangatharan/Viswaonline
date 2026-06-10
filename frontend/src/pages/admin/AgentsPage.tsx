@@ -3,7 +3,7 @@ import api from '../../lib/adminApi';
 import authApi from '../../lib/axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
-import { Edit2, Plus, Eye, EyeOff, Download, ShieldAlert, Link2, Copy, Check } from 'lucide-react';
+import { Edit2, Plus, Eye, EyeOff, Download, ShieldAlert, Link2, Copy, Check, Trash2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -35,6 +35,9 @@ export function AgentsPage() {
   const [showPwd, setShowPwd] = useState(false);
   const [modalErrors, setModalErrors] = useState<ModalErrors>({});
   const [toggleConfirm, setToggleConfirm] = useState<{ open: boolean; agent: any | null; pwd: string; loading: boolean; error: string; showPwd: boolean }>(
+    { open: false, agent: null, pwd: '', loading: false, error: '', showPwd: false }
+  );
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; agent: any | null; pwd: string; loading: boolean; error: string; showPwd: boolean }>(
     { open: false, agent: null, pwd: '', loading: false, error: '', showPwd: false }
   );
   const [copied, setCopied] = useState(false);
@@ -143,6 +146,20 @@ export function AgentsPage() {
     }
   };
 
+  const confirmDelete = async () => {
+    if (!deleteConfirm.pwd) { setDeleteConfirm(s => ({ ...s, error: 'Password is required' })); return; }
+    setDeleteConfirm(s => ({ ...s, loading: true, error: '' }));
+    try {
+      await api.delete(`/agents/${deleteConfirm.agent.id}`, { data: { admin_password: deleteConfirm.pwd } });
+      toast.success('Agent deleted');
+      setDeleteConfirm({ open: false, agent: null, pwd: '', loading: false, error: '', showPwd: false });
+      fetchAgents();
+    } catch (err: any) {
+      const msg = err.response?.status === 403 ? 'Incorrect password' : err.response?.data?.message || 'Something went wrong';
+      setDeleteConfirm(s => ({ ...s, loading: false, error: msg }));
+    }
+  };
+
   const inp: React.CSSProperties = {
     width: '100%', border: '1.5px solid #E0E5F2', borderRadius: 12,
     padding: '11px 14px', fontSize: 14, color: '#111827',
@@ -229,9 +246,14 @@ export function AgentsPage() {
                       {createdAt ? new Date(createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                     </td>
                     <td style={{ ...td, textAlign: 'right' }}>
-                      <button onClick={() => openEdit(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', background: '#F5F3FF', border: '1.5px solid #EDE9FE', borderRadius: 9, color: '#7C3AED', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
-                        <Edit2 size={13} /> Edit
-                      </button>
+                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        <button onClick={() => openEdit(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', background: '#F5F3FF', border: '1.5px solid #EDE9FE', borderRadius: 9, color: '#7C3AED', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                          <Edit2 size={13} /> Edit
+                        </button>
+                        <button onClick={() => setDeleteConfirm({ open: true, agent: a, pwd: '', loading: false, error: '', showPwd: false })} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', background: '#FEF2F2', border: '1.5px solid #FECACA', borderRadius: 9, color: '#EF4444', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                          <Trash2 size={13} /> Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -355,6 +377,67 @@ export function AgentsPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Agent Confirm Modal */}
+      {deleteConfirm.open && (() => {
+        const a = deleteConfirm.agent;
+        const agentName = a?.username || a?.users?.username || 'this agent';
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(27,37,89,0.3)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            <div style={{ background: '#fff', borderRadius: 24, padding: 32, width: '100%', maxWidth: 380, boxShadow: '0 24px 64px rgba(112,144,176,0.25)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Trash2 size={20} color="#EF4444" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: '#111827' }}>Delete Agent</div>
+                  <div style={{ fontSize: 13, color: '#6B7280', marginTop: 1 }}>
+                    <span style={{ fontWeight: 700, color: '#111827' }}>{agentName}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 20, paddingLeft: 54 }}>
+                This will permanently delete the agent and all their betting data. Enter your admin password to confirm.
+              </div>
+
+              <div style={{ marginBottom: 6 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: 7 }}>Admin Password</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={deleteConfirm.showPwd ? 'text' : 'password'}
+                    autoFocus
+                    placeholder="Enter your password"
+                    value={deleteConfirm.pwd}
+                    onChange={e => setDeleteConfirm(s => ({ ...s, pwd: e.target.value, error: '' }))}
+                    onKeyDown={e => e.key === 'Enter' && confirmDelete()}
+                    style={{ ...inp, borderColor: deleteConfirm.error ? '#EF4444' : '#E0E5F2', background: deleteConfirm.error ? '#FFF5F5' : '#F9FAFB', paddingRight: 44 }}
+                  />
+                  <button type="button" onClick={() => setDeleteConfirm(s => ({ ...s, showPwd: !s.showPwd }))}
+                    style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', padding: 4, display: 'flex', alignItems: 'center' }}>
+                    {deleteConfirm.showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+                {deleteConfirm.error && (
+                  <div style={{ fontSize: 12, color: '#EF4444', marginTop: 5, fontWeight: 500 }}>{deleteConfirm.error}</div>
+                )}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 22 }}>
+                <button type="button"
+                  onClick={() => setDeleteConfirm({ open: false, agent: null, pwd: '', loading: false, error: '', showPwd: false })}
+                  style={{ padding: '12px', background: '#F9FAFB', border: 'none', borderRadius: 12, color: '#6B7280', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                  Cancel
+                </button>
+                <button type="button" onClick={confirmDelete} disabled={deleteConfirm.loading}
+                  style={{ padding: '12px', background: '#EF4444', border: 'none', borderRadius: 12, color: '#fff', fontWeight: 700, fontSize: 14, cursor: deleteConfirm.loading ? 'not-allowed' : 'pointer', opacity: deleteConfirm.loading ? 0.7 : 1 }}>
+                  {deleteConfirm.loading ? 'Deleting...' : 'Delete Agent'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Toggle Status Confirm Modal */}
       {toggleConfirm.open && (() => {

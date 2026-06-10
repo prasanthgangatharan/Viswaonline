@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../../lib/adminApi';
 import socket from '../../lib/socket';
 import toast from 'react-hot-toast';
-import { Trophy, ChevronUp, ChevronDown, Filter, Download } from 'lucide-react';
+import { Trophy, ChevronUp, ChevronDown, Filter, Download, Paperclip, FileText, X, ExternalLink } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -51,6 +51,8 @@ export function ResultsPage() {
   const [pendingLotteries, setPendingLotteries] = useState<any[]>([]);
   const [winNumbers, setWinNumbers] = useState<Record<string, string>>({});
   const [declaring, setDeclaring] = useState<Record<string, boolean>>({});
+  const [docFiles, setDocFiles] = useState<Record<string, File | null>>({});
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const [results, setResults] = useState<any[]>([]);
   const [bets, setBets] = useState<any[]>([]);
@@ -102,9 +104,20 @@ export function ResultsPage() {
     if (isNaN(num) || num < 0 || num > 999) return toast.error('Winning number must be 000–999');
     setDeclaring(p => ({ ...p, [lotteryId]: true }));
     try {
-      await api.post('/results/declare', { lottery_id: lotteryId, winning_number: num });
+      let document_url: string | undefined;
+      const file = docFiles[lotteryId];
+      if (file) {
+        const fd = new FormData();
+        fd.append('file', file);
+        const { data } = await api.post('/results/upload-document', fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        document_url = data.url;
+      }
+      await api.post('/results/declare', { lottery_id: lotteryId, winning_number: num, document_url });
       toast.success('Result declared!');
       setWinNumbers(p => ({ ...p, [lotteryId]: '' }));
+      setDocFiles(p => { const n = { ...p }; delete n[lotteryId]; return n; });
       fetchPending(); fetchDeclaredData();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to declare result');
@@ -205,35 +218,75 @@ export function ResultsPage() {
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
-            {pendingLotteries.map(l => (
-              <div key={l.id} style={{ ...card, padding: 22 }}>
-                <div style={{ fontWeight: 800, fontSize: 15, color: '#111827', marginBottom: 4 }}>{l.name}</div>
-                <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 16, fontWeight: 500 }}>
-                  {new Date(l.draw_time).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
+            {pendingLotteries.map(l => {
+              const selectedFile = docFiles[l.id] || null;
+              const ready = (winNumbers[l.id] || '').length === 3;
+              return (
+                <div key={l.id} style={{ ...card, padding: 22 }}>
+                  <div style={{ fontWeight: 800, fontSize: 15, color: '#111827', marginBottom: 4 }}>{l.name}</div>
+                  <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 16, fontWeight: 500 }}>
+                    {new Date(l.draw_time).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
+                  </div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <input
+                      type="text" inputMode="numeric" maxLength={3} placeholder="000"
+                      value={winNumbers[l.id] || ''}
+                      onChange={e => setWinNumbers(p => ({ ...p, [l.id]: e.target.value.replace(/\D/g, '').slice(0, 3) }))}
+                      style={{ flex: 1, border: '2px solid #E0E5F2', borderRadius: 12, padding: '12px 14px', color: '#111827', fontSize: 26, fontWeight: 800, letterSpacing: 10, textAlign: 'center', background: '#F9FAFB', outline: 'none' }}
+                    />
+                    <button
+                      onClick={() => declare(l.id)}
+                      disabled={declaring[l.id] || !ready}
+                      style={{
+                        padding: '10px 18px', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap',
+                        background: ready ? 'linear-gradient(135deg, #4318FF 0%, #9F7AEA 100%)' : '#F4F7FE',
+                        color: ready ? '#fff' : '#6B7280',
+                        cursor: ready ? 'pointer' : 'not-allowed',
+                        boxShadow: ready ? '0 4px 14px rgba(124,58,237,0.3)' : 'none',
+                      }}
+                    >
+                      {declaring[l.id] ? 'Declaring...' : 'Declare'}
+                    </button>
+                  </div>
+
+                  {/* Result document picker */}
+                  <div style={{ marginTop: 12 }}>
+                    <input
+                      ref={el => { fileInputRefs.current[l.id] = el; }}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,application/pdf"
+                      style={{ display: 'none' }}
+                      onChange={e => {
+                        const f = e.target.files?.[0] || null;
+                        if (f && f.size > 1024 * 1024) {
+                          toast.error('File must be under 1 MB');
+                          e.target.value = '';
+                          return;
+                        }
+                        setDocFiles(p => ({ ...p, [l.id]: f }));
+                      }}
+                    />
+                    {selectedFile ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#F0F4FF', borderRadius: 10, border: '1px solid #C7D2FE' }}>
+                        <FileText size={14} color="#4318FF" style={{ flexShrink: 0 }} />
+                        <span style={{ flex: 1, fontSize: 12, color: '#4318FF', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedFile.name}</span>
+                        <span style={{ fontSize: 11, color: '#9CA3AF', flexShrink: 0 }}>{(selectedFile.size / 1024).toFixed(0)} KB</span>
+                        <button type="button" onClick={() => { setDocFiles(p => ({ ...p, [l.id]: null })); if (fileInputRefs.current[l.id]) fileInputRefs.current[l.id]!.value = ''; }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 2, display: 'flex', alignItems: 'center' }}>
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => fileInputRefs.current[l.id]?.click()}
+                        style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 12px', background: '#F9FAFB', border: '1.5px dashed #D1D5DB', borderRadius: 10, color: '#6B7280', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%' }}>
+                        <Paperclip size={13} />
+                        Attach result document (PDF / image, max 1 MB) — optional
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <input
-                    type="text" inputMode="numeric" maxLength={3} placeholder="000"
-                    value={winNumbers[l.id] || ''}
-                    onChange={e => setWinNumbers(p => ({ ...p, [l.id]: e.target.value.replace(/\D/g, '').slice(0, 3) }))}
-                    style={{ flex: 1, border: '2px solid #E0E5F2', borderRadius: 12, padding: '12px 14px', color: '#111827', fontSize: 26, fontWeight: 800, letterSpacing: 10, textAlign: 'center', background: '#F9FAFB', outline: 'none' }}
-                  />
-                  <button
-                    onClick={() => declare(l.id)}
-                    disabled={declaring[l.id] || (winNumbers[l.id] || '').length !== 3}
-                    style={{
-                      padding: '10px 18px', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap',
-                      background: (winNumbers[l.id] || '').length === 3 ? 'linear-gradient(135deg, #4318FF 0%, #9F7AEA 100%)' : '#F4F7FE',
-                      color: (winNumbers[l.id] || '').length === 3 ? '#fff' : '#6B7280',
-                      cursor: (winNumbers[l.id] || '').length === 3 ? 'pointer' : 'not-allowed',
-                      boxShadow: (winNumbers[l.id] || '').length === 3 ? '0 4px 14px rgba(124,58,237,0.3)' : 'none',
-                    }}
-                  >
-                    {declaring[l.id] ? 'Declaring...' : 'Declare'}
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -365,6 +418,14 @@ export function ResultsPage() {
                         </div>
                       ))}
                     </div>
+
+                    {/* Document link */}
+                    {r.document_url && (
+                      <a href={r.document_url} target="_blank" rel="noopener noreferrer"
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: '#F0F4FF', border: '1px solid #C7D2FE', borderRadius: 20, color: '#4318FF', fontSize: 12, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                        <FileText size={12} /> Result Doc <ExternalLink size={11} />
+                      </a>
+                    )}
 
                     {/* Summary chips */}
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

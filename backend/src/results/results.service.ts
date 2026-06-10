@@ -1,7 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { AppGateway } from '../gateway/app.gateway';
 import { DeclareResultDto } from './dto/declare-result.dto';
+
+const BUCKET = 'result-documents';
+const MAX_SIZE = 1024 * 1024; // 1 MB
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 
 @Injectable()
 export class ResultsService {
@@ -22,7 +26,11 @@ export class ResultsService {
 
     const { data: result, error: rErr } = await sb
       .from('results')
-      .insert({ lottery_id: dto.lottery_id, winning_number: dto.winning_number })
+      .insert({
+        lottery_id: dto.lottery_id,
+        winning_number: dto.winning_number,
+        document_url: dto.document_url ?? null,
+      })
       .select()
       .single();
     if (rErr) throw new Error(rErr.message);
@@ -40,5 +48,32 @@ export class ResultsService {
     this.gateway.emitLotteryClosed({ id: dto.lottery_id, status: 'done' });
 
     return result;
+  }
+
+  async uploadDocument(file: { originalname: string; mimetype: string; buffer: Buffer; size: number }) {
+    if (!ALLOWED_TYPES.includes(file.mimetype)) {
+      throw new BadRequestException('Only JPEG, PNG, WebP, and PDF files are allowed');
+    }
+    if (file.size > MAX_SIZE) {
+      throw new BadRequestException('File size must not exceed 1 MB');
+    }
+
+    const ext = file.originalname.split('.').pop()?.toLowerCase() || 'bin';
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+    const sb = this.supabase.getClient();
+
+    // Create bucket if it doesn't exist yet (idempotent — ignore "already exists" error)
+    await sb.storage.createBucket(BUCKET, { public: true }).catch(() => {});
+
+    const { error: uploadErr } = await sb.storage
+      .from(BUCKET)
+      .upload(filename, file.buffer, { contentType: file.mimetype, upsert: false });
+
+    if (uploadErr) throw new Error(`Upload failed: ${uploadErr.message}`);
+
+    const { data: { publicUrl } } = sb.storage.from(BUCKET).getPublicUrl(filename);
+
+    return { url: publicUrl };
   }
 }
