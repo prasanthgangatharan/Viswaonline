@@ -33,6 +33,6 @@ export class AgentsController {
 
   @Delete(':id')
   deleteAgent(@Param('id') id: string, @Body() dto: DeleteAgentDto, @Request() req: any) {
-    return this.service.deleteAgent(id, req.user.sub, dto.admin_password);
+    return this.service.deleteAgent(id, req.user.id, dto.admin_password);
   }
 }
