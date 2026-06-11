@@ -57,7 +57,7 @@ export function SalesReportPage() {
                     <td style={{ ...td, color: '#6B7280', fontSize: 13, fontFamily: 'monospace' }}>{b.ticket_id}</td>
                     <td style={{ ...td, fontWeight: 600 }}>{b.lotteries?.name}</td>
                     <td style={{ ...td, fontWeight: 800, color: '#7C3AED' }}>{b.type}</td>
-                    <td style={{ ...td, fontWeight: 800, fontSize: 17, letterSpacing: 1 }}>{b.number}</td>
+                    <td style={{ ...td, fontWeight: 800, fontSize: 17, letterSpacing: 1 }}>{String(b.number).padStart(b.tab, '0')}</td>
                     <td style={{ ...td, color: '#6B7280' }}>{b.count}</td>
                     <td style={{ ...td, fontWeight: 700, color: '#05CD99' }}>{fmt(b.amount)}</td>
                     <td style={{ ...td, color: '#6B7280', fontSize: 13 }}>{new Date(b.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</td>

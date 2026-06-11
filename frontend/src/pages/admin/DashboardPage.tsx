@@ -196,7 +196,7 @@ export function DashboardPage() {
                     <td style={td}>
                       <span style={{ padding: '4px 12px', background: '#F5F3FF', color: '#7C3AED', borderRadius: 8, fontSize: 13, fontWeight: 700 }}>{b.lotteries?.name}</span>
                     </td>
-                    <td style={{ ...td, fontWeight: 800, fontSize: 17, letterSpacing: 1 }}>{b.number}</td>
+                    <td style={{ ...td, fontWeight: 800, fontSize: 17, letterSpacing: 1 }}>{String(b.number).padStart(b.tab, '0')}</td>
                     <td style={{ ...td, color: '#6B7280' }}>{b.count}</td>
                     <td style={{ ...td, fontWeight: 700, color: '#059669' }}>{fmt(b.amount)}</td>
                     <td style={{ ...td, color: '#9CA3AF', fontSize: 13 }}>{fmtTime(b.created_at)}</td>
