@@ -41,12 +41,35 @@ export class CleanupService implements OnModuleInit {
         this.logger.log(`[Cleanup] Cleared ${betsDeleted ?? 0} bets, ${overflowDeleted ?? 0} overflow bets for lotteries closed > 2 weeks ago`);
       }
 
-      // 2. Clear results declared > 2 weeks ago
-      const { count: resultsDeleted } = await sb
+      // 2. Clear results declared > 2 weeks ago (delete storage files first)
+      const { data: oldResults } = await sb
         .from('results')
-        .delete({ count: 'exact' })
+        .select('id, document_url')
         .lt('declared_at', cutoff);
-      this.logger.log(`[Cleanup] Cleared ${resultsDeleted ?? 0} results declared > 2 weeks ago`);
+
+      if (oldResults?.length) {
+        const storageFiles = oldResults
+          .filter((r: any) => r.document_url)
+          .map((r: any) => {
+            const parts = (r.document_url as string).split('/result-documents/');
+            return parts.length > 1 ? parts[1] : null;
+          })
+          .filter(Boolean) as string[];
+
+        if (storageFiles.length) {
+          await sb.storage.from('result-documents').remove(storageFiles);
+          this.logger.log(`[Cleanup] Deleted ${storageFiles.length} document files from storage`);
+        }
+
+        const ids = oldResults.map((r: any) => r.id);
+        const { count: resultsDeleted } = await sb
+          .from('results')
+          .delete({ count: 'exact' })
+          .in('id', ids);
+        this.logger.log(`[Cleanup] Cleared ${resultsDeleted ?? 0} results declared > 2 weeks ago`);
+      } else {
+        this.logger.log(`[Cleanup] Cleared 0 results declared > 2 weeks ago`);
+      }
 
       // 3. Delete entire done lotteries whose betting closed > 2 weeks ago (cascade removes remaining bets/results/overflow)
       const { data: oldDone } = await sb
