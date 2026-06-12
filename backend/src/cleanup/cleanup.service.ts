@@ -1,56 +1,18 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
-import { AppGateway } from '../gateway/app.gateway';
 
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-const ONE_MINUTE_MS = 60 * 1000;
 
 @Injectable()
 export class CleanupService implements OnModuleInit {
   private readonly logger = new Logger(CleanupService.name);
 
-  constructor(private supabase: SupabaseService, private gateway: AppGateway) {}
+  constructor(private supabase: SupabaseService) {}
 
   onModuleInit() {
-    // Auto-close lotteries every minute
-    this.autoCloseLotteries();
-    setInterval(() => this.autoCloseLotteries(), ONE_MINUTE_MS);
-
-    // Daily DB cleanup
     this.runCleanup();
     setInterval(() => this.runCleanup(), ONE_DAY_MS);
-  }
-
-  private async autoCloseLotteries() {
-    try {
-      const sb = this.supabase.getClient();
-      const now = new Date().toISOString();
-
-      const { data: toClose, error } = await sb
-        .from('lotteries')
-        .select('id, name')
-        .eq('status', 'active')
-        .lte('draw_time', now);
-
-      if (error) { this.logger.error(`[AutoClose] Query failed: ${error.message}`); return; }
-      if (!toClose?.length) return;
-
-      for (const lottery of toClose) {
-        const { data } = await sb
-          .from('lotteries')
-          .update({ status: 'closed' })
-          .eq('id', lottery.id)
-          .select()
-          .single();
-        if (data) {
-          this.gateway.emitLotteryClosed(data);
-          this.logger.log(`[AutoClose] Lottery "${lottery.name}" (${lottery.id}) closed at draw time`);
-        }
-      }
-    } catch (err: any) {
-      this.logger.error(`[AutoClose] Error: ${err.message}`);
-    }
   }
 
   private async runCleanup() {
