@@ -81,12 +81,13 @@ export function AgentLayout() {
 
         <div style={{ padding: '14px 12px', borderTop: '1px solid #F3F4F6' }}>
           <button onClick={handleLogout} style={{
-            display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-            padding: '10px 12px', background: 'transparent',
-            border: '1px solid #FEE2E2', borderRadius: 11,
-            color: '#EF4444', cursor: 'pointer', fontSize: 14, fontWeight: 600,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%',
+            padding: '11px 12px', background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+            border: 'none', borderRadius: 11,
+            color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700,
+            boxShadow: '0 2px 8px rgba(239,68,68,0.35)',
           }}>
-            <LogOut size={16} /> Sign Out
+            <LogOut size={15} /> Sign Out
           </button>
         </div>
       </aside>
@@ -96,28 +97,32 @@ export function AgentLayout() {
         {/* Mobile Header — hidden on data-entry so its own bar sits at the top */}
         <div className="agent-mobile-header" style={location.pathname.startsWith('/agent/data-entry') ? { display: 'none' } : undefined}>
           {/* Left: back (if inner page) + agent identity */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {location.pathname !== '/agent/home' && (
-              <button onClick={() => navigate(-1)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 10, background: '#F3F4F6', border: 'none', color: '#374151', cursor: 'pointer', flexShrink: 0 }}>
+              <button onClick={() => navigate(-1)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 10, background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', cursor: 'pointer', flexShrink: 0 }}>
                 <ChevronLeft size={18} />
               </button>
             )}
-            <div style={{ width: 36, height: 36, borderRadius: 11, background: '#4318FF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 12, background: 'linear-gradient(135deg, #fff3 0%, #fff5 100%)', border: '2px solid rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 800, color: '#fff', flexShrink: 0, letterSpacing: -0.5 }}>
               {user?.username?.[0]?.toUpperCase()}
             </div>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#111827', lineHeight: 1.2 }}>{user?.username}</div>
-              <div style={{ fontSize: 11, color: '#10B981', fontWeight: 600 }}>● Active</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.2, textShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>{user?.username}</div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: '#fff', background: 'rgba(52,211,153,0.35)', border: '1px solid rgba(52,211,153,0.5)', borderRadius: 20, padding: '1px 7px', marginTop: 2 }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#34d399', display: 'inline-block' }} />
+                ACTIVE
+              </div>
             </div>
           </div>
 
-          {/* Right: page label (non-home) + logout */}
+          {/* Right: page label + sign out pill */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {location.pathname !== '/agent/home' && (
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#6B7280' }}>{currentLabel}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 20, padding: '3px 10px' }}>{currentLabel}</span>
             )}
-            <button onClick={handleLogout} style={{ width: 34, height: 34, borderRadius: 10, background: '#FEF2F2', border: 'none', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <LogOut size={15} />
+            <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 20, background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700, boxShadow: '0 2px 10px rgba(239,68,68,0.45)', letterSpacing: 0.2 }}>
+              <LogOut size={13} />
+              Sign Out
             </button>
           </div>
         </div>

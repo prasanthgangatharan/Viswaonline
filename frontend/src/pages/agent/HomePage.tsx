@@ -99,11 +99,11 @@ export function HomePage() {
 
       {/* Lottery Tickets */}
       <div>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1.2, marginBottom: 10, textTransform: 'uppercase' }}>Tickets</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)', letterSpacing: 1.2, marginBottom: 10, textTransform: 'uppercase' }}>Tickets</div>
 
         {activeLotteries.length === 0 ? (
-          <div style={{ background: '#F3F4F6', borderRadius: 12, padding: '18px', textAlign: 'center' }}>
-            <div style={{ color: '#9CA3AF', fontSize: 13, fontWeight: 600 }}>No tickets right now</div>
+          <div style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 14, padding: '20px', textAlign: 'center', backdropFilter: 'blur(6px)' }}>
+            <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: 600 }}>No tickets right now</div>
           </div>
         ) : useCarousel ? (
           /* Carousel: horizontal scroll, 2 cards visible at a time */
@@ -139,7 +139,7 @@ export function HomePage() {
 
       {/* Menu Grid */}
       <div className="agent-home-menu">
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1.2, marginBottom: 10, textTransform: 'uppercase' }}>Menu</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)', letterSpacing: 1.2, marginBottom: 10, textTransform: 'uppercase' }}>Menu</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
           {menuItems.map(({ label, icon: Icon, bg, to }, index) => {
             const count = menuItems.length;
