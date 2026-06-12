@@ -144,6 +144,23 @@ export function AllBetsPage() {
         </div>
         <Pagination page={page} total={bets.length} pageSize={PAGE_SIZE} onChange={setPage} accent="#4318FF" />
       </div>
+
+      {bets.length > 0 && (
+        <div style={{ background: '#fff', borderRadius: 20, padding: '20px 24px', display: 'flex', gap: 40, flexWrap: 'wrap', border: '1px solid #F3F4F6' }}>
+          <div>
+            <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 700, letterSpacing: 0.8 }}>TOTAL ENTRIES</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: '#4318FF', marginTop: 6 }}>{bets.length}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 700, letterSpacing: 0.8 }}>TOTAL COUNT</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: '#7C3AED', marginTop: 6 }}>{bets.reduce((s, b) => s + Number(b.count), 0)}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 700, letterSpacing: 0.8 }}>TOTAL AMOUNT</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: '#05CD99', marginTop: 6 }}>{fmt(bets.reduce((s, b) => s + Number(b.amount), 0))}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -3,7 +3,8 @@ import api from '../../lib/adminApi';
 import authApi from '../../lib/axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
-import { Edit2, Plus, Eye, EyeOff, Download, ShieldAlert, Link2, Copy, Check, Trash2 } from 'lucide-react';
+import { Edit2, Plus, Eye, EyeOff, Download, ShieldAlert, Link2, Copy, Check, Trash2, BarChart2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -28,6 +29,7 @@ function validatePassword(v: string, required: boolean): string | undefined {
 
 export function AgentsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [agents, setAgents] = useState<any[]>([]);
   const [modal, setModal] = useState<{ open: boolean; agent: any | null }>({ open: false, agent: null });
   const [form, setForm] = useState(EMPTY_FORM);
@@ -247,6 +249,9 @@ export function AgentsPage() {
                     </td>
                     <td style={{ ...td, textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        <button onClick={() => navigate(`/admin/agents/${a.id}`)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', background: '#F0F4FF', border: '1.5px solid #C7D2FE', borderRadius: 9, color: '#4318FF', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                          <BarChart2 size={13} /> View
+                        </button>
                         <button onClick={() => openEdit(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', background: '#F5F3FF', border: '1.5px solid #EDE9FE', borderRadius: 9, color: '#7C3AED', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
                           <Edit2 size={13} /> Edit
                         </button>

@@ -18,6 +18,7 @@ import { AdminLoginPage } from './pages/admin/AdminLoginPage';
 import { DashboardPage } from './pages/admin/DashboardPage';
 import { LotteriesPage } from './pages/admin/LotteriesPage';
 import { AgentsPage } from './pages/admin/AgentsPage';
+import { AgentDetailPage } from './pages/admin/AgentDetailPage';
 import { AllBetsPage } from './pages/admin/AllBetsPage';
 import { ResultsPage } from './pages/admin/ResultsPage';
 import { RiskViewPage } from './pages/admin/RiskViewPage';
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="lotteries" element={<LotteriesPage />} />
           <Route path="agents" element={<AgentsPage />} />
+          <Route path="agents/:id" element={<AgentDetailPage />} />
           <Route path="bets" element={<AllBetsPage />} />
           <Route path="results" element={<ResultsPage />} />
           <Route path="risk" element={<RiskViewPage />} />

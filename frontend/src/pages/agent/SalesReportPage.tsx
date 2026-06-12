@@ -4,24 +4,46 @@ import { Pagination } from '../../components/Pagination';
 
 function fmt(n: number) { return `Rs.${Math.round(n).toLocaleString('en-IN')}`; }
 
+const ALL_TYPES = ['A', 'B', 'C', 'AB', 'BC', 'AC', 'SUPER', 'BOX'];
 const PAGE_SIZE = 20;
 
 export function SalesReportPage() {
   const [bets, setBets] = useState<any[]>([]);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [filterType, setFilterType] = useState('');
+  const [filterLottery, setFilterLottery] = useState('');
+  const [lotteryNames, setLotteryNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
 
-  const fetch = async () => {
+  const fetchBets = async () => {
     setLoading(true);
-    try { const { data } = await api.get('/bets/sales-summary', { params: { date } }); setBets(data); }
-    catch {} finally { setLoading(false); }
+    try {
+      const { data } = await api.get('/bets/sales-summary', { params: { date } });
+      setBets(data);
+      const names = [...new Set<string>(data.map((b: any) => b.lotteries?.name).filter(Boolean))];
+      setLotteryNames(names.sort());
+    } catch {} finally { setLoading(false); }
   };
 
-  useEffect(() => { fetch(); setPage(1); }, [date]);
+  useEffect(() => { fetchBets(); setPage(1); }, [date]);
+  useEffect(() => { setPage(1); }, [filterType, filterLottery]);
 
-  const total = bets.reduce((s, b) => s + Number(b.amount), 0);
-  const paginated = bets.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const filtered = bets.filter(b => {
+    if (filterType && b.type !== filterType) return false;
+    if (filterLottery && b.lotteries?.name !== filterLottery) return false;
+    return true;
+  });
+
+  const totalAmount = filtered.reduce((s, b) => s + Number(b.amount), 0);
+  const totalCount = filtered.reduce((s, b) => s + Number(b.count), 0);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const sel: React.CSSProperties = {
+    border: '1.5px solid #E0E5F2', borderRadius: 12,
+    padding: '10px 14px', color: '#111827', fontSize: 13,
+    background: '#fff', fontFamily: 'inherit',
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -30,11 +52,23 @@ export function SalesReportPage() {
         <div style={{ fontSize: 13, color: '#6B7280', marginTop: 3, fontWeight: 500 }}>Your daily betting summary</div>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ border: '1.5px solid #E0E5F2', borderRadius: 12, padding: '10px 14px', color: '#111827', fontSize: 13, background: '#fff', fontFamily: 'inherit' }} />
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#7C3AED', background: '#F0EBFF', padding: '8px 14px', borderRadius: 12 }}>
-          {bets.length} entries · {fmt(total)}
-        </div>
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <input type="date" value={date} onChange={e => setDate(e.target.value)} style={sel} />
+        <select style={sel} value={filterType} onChange={e => setFilterType(e.target.value)}>
+          <option value="">All Types</option>
+          {ALL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select style={sel} value={filterLottery} onChange={e => setFilterLottery(e.target.value)}>
+          <option value="">All Lotteries</option>
+          {lotteryNames.map(n => <option key={n} value={n}>{n}</option>)}
+        </select>
+        {(filterType || filterLottery) && (
+          <button onClick={() => { setFilterType(''); setFilterLottery(''); }}
+            style={{ padding: '10px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, color: '#EF4444', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+            Clear
+          </button>
+        )}
       </div>
 
       <div style={{ background: '#fff', borderRadius: 20, overflow: 'hidden', boxShadow: 'none', border: '1px solid #F3F4F6' }}>
@@ -49,7 +83,7 @@ export function SalesReportPage() {
             </thead>
             <tbody>
               {loading && <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: '#6B7280', fontSize: 14 }}>Loading...</td></tr>}
-              {!loading && bets.length === 0 && <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: '#6B7280', fontSize: 14 }}>No bets found for this date</td></tr>}
+              {!loading && filtered.length === 0 && <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: '#6B7280', fontSize: 14 }}>No bets found</td></tr>}
               {paginated.map((b: any, i: number) => {
                 const td: React.CSSProperties = { padding: '15px 18px', fontSize: 15, color: '#111827', borderBottom: '1px solid #F3F4F6', verticalAlign: 'middle' };
                 return (
@@ -67,18 +101,22 @@ export function SalesReportPage() {
             </tbody>
           </table>
         </div>
-        <Pagination page={page} total={bets.length} pageSize={PAGE_SIZE} onChange={setPage} accent="#7C3AED" />
+        <Pagination page={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} accent="#7C3AED" />
       </div>
 
-      {bets.length > 0 && (
-        <div style={{ background: '#fff', borderRadius: 20, padding: '20px 24px', display: 'flex', gap: 40, boxShadow: 'none', border: '1px solid #F3F4F6' }}>
+      {filtered.length > 0 && (
+        <div style={{ background: '#fff', borderRadius: 20, padding: '20px 24px', display: 'flex', gap: 40, flexWrap: 'wrap', boxShadow: 'none', border: '1px solid #F3F4F6' }}>
           <div>
             <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 700, letterSpacing: 0.8 }}>TOTAL ENTRIES</div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: '#7C3AED', marginTop: 6 }}>{bets.length}</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: '#4318FF', marginTop: 6 }}>{filtered.length}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 700, letterSpacing: 0.8 }}>TOTAL COUNT</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: '#7C3AED', marginTop: 6 }}>{totalCount}</div>
           </div>
           <div>
             <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 700, letterSpacing: 0.8 }}>TOTAL AMOUNT</div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: '#05CD99', marginTop: 6 }}>{fmt(total)}</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: '#05CD99', marginTop: 6 }}>{fmt(totalAmount)}</div>
           </div>
         </div>
       )}
