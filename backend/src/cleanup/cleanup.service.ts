@@ -23,28 +23,33 @@ export class CleanupService implements OnModuleInit {
   }
 
   private async autoCloseLotteries() {
-    const sb = this.supabase.getClient();
-    const now = new Date().toISOString();
+    try {
+      const sb = this.supabase.getClient();
+      const now = new Date().toISOString();
 
-    const { data: toClose } = await sb
-      .from('lotteries')
-      .select('id, name')
-      .eq('status', 'open')
-      .lte('draw_time', now);
-
-    if (!toClose?.length) return;
-
-    for (const lottery of toClose) {
-      const { data } = await sb
+      const { data: toClose, error } = await sb
         .from('lotteries')
-        .update({ status: 'closed' })
-        .eq('id', lottery.id)
-        .select()
-        .single();
-      if (data) {
-        this.gateway.emitLotteryClosed(data);
-        this.logger.log(`[AutoClose] Lottery "${lottery.name}" (${lottery.id}) closed at draw time`);
+        .select('id, name')
+        .eq('status', 'active')
+        .lte('draw_time', now);
+
+      if (error) { this.logger.error(`[AutoClose] Query failed: ${error.message}`); return; }
+      if (!toClose?.length) return;
+
+      for (const lottery of toClose) {
+        const { data } = await sb
+          .from('lotteries')
+          .update({ status: 'closed' })
+          .eq('id', lottery.id)
+          .select()
+          .single();
+        if (data) {
+          this.gateway.emitLotteryClosed(data);
+          this.logger.log(`[AutoClose] Lottery "${lottery.name}" (${lottery.id}) closed at draw time`);
+        }
       }
+    } catch (err: any) {
+      this.logger.error(`[AutoClose] Error: ${err.message}`);
     }
   }
 
