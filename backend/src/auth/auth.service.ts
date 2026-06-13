@@ -1,6 +1,8 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import * as fs from 'fs';
+import * as path from 'path';
 import { SupabaseService } from '../supabase/supabase.service';
 
 @Injectable()
@@ -63,6 +65,40 @@ export class AuthService {
       .from('users')
       .update({ last_logout_at: new Date().toISOString() })
       .eq('id', userId);
+    return { success: true };
+  }
+
+  async changeAdminPassword(userId: string, currentPassword: string, newPassword: string) {
+    const sb = this.supabase.getClient();
+
+    const { data: user, error } = await sb
+      .from('users')
+      .select('password_hash')
+      .eq('id', userId)
+      .eq('role', 'admin')
+      .single();
+
+    if (error || !user) throw new UnauthorizedException('Admin not found');
+
+    const valid = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!valid) throw new UnauthorizedException('Current password is incorrect');
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+
+    const { error: updateErr } = await sb
+      .from('users')
+      .update({ password_hash: newHash })
+      .eq('id', userId);
+    if (updateErr) throw new Error(updateErr.message);
+
+    // Keep .env in sync so server restarts don't overwrite the new password
+    const envPath = path.join(process.cwd(), '.env');
+    if (fs.existsSync(envPath)) {
+      let envContent = fs.readFileSync(envPath, 'utf8');
+      envContent = envContent.replace(/^ADMIN_PASSWORD=.*$/m, `ADMIN_PASSWORD=${newPassword}`);
+      fs.writeFileSync(envPath, envContent, 'utf8');
+    }
+
     return { success: true };
   }
 }

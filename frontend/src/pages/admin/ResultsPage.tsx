@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../../lib/adminApi';
 import socket from '../../lib/socket';
 import toast from 'react-hot-toast';
-import { Trophy, ChevronUp, ChevronDown, Filter, Download, Paperclip, FileText, X, ExternalLink } from 'lucide-react';
+import { Trophy, ChevronUp, ChevronDown, Filter, Download, Paperclip, FileText, X, ExternalLink, Plus } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-function checkWin(bet: any, winStr: string): boolean {
+function checkWin(bet: any, winStr: string, extraPrizes: string[] = []): boolean {
   const [d1, d2, d3] = winStr.split('');
   const tabNum = Number(bet.tab);
   const betNum = String(bet.number).padStart(tabNum, '0');
@@ -19,11 +19,10 @@ function checkWin(bet: any, winStr: string): boolean {
     if (bet.type === 'BC') return betNum === d2 + d3;
     if (bet.type === 'AC') return betNum === d1 + d3;
   } else if (tabNum === 3) {
-    if (bet.type === 'SUPER') return betNum === winStr;
-    if (bet.type === 'BOX') {
-      const sort = (s: string) => s.split('').sort().join('');
-      return sort(betNum) === sort(winStr);
-    }
+    const all = [winStr, ...extraPrizes];
+    const sort = (s: string) => s.split('').sort().join('');
+    if (bet.type === 'SUPER') return all.some(p => betNum === p);
+    if (bet.type === 'BOX') return all.some(p => sort(betNum) === sort(p));
   }
   return false;
 }
@@ -36,6 +35,24 @@ const TYPE_COLOR: Record<string, string> = {
 const ALL_TYPES = ['A', 'B', 'C', 'AB', 'BC', 'AC', 'SUPER', 'BOX'];
 
 function fmt(n: number) { return `Rs.${Math.round(n).toLocaleString('en-IN')}`; }
+function pad3(n: number | string) { return String(n).padStart(3, '0'); }
+
+function getWonPrize(bet: any, winStr: string, r: any): string {
+  const tabNum = Number(bet.tab);
+  const betNum = String(bet.number).padStart(tabNum, '0');
+  const sort = (s: string) => s.split('').sort().join('');
+  if (tabNum < 3) return '1st';
+  const prizes = [
+    { label: '1st', val: winStr },
+    ...[r.prize_2, r.prize_3, r.prize_4, r.prize_5].map((v: any, i: number) => v != null ? { label: ['2nd', '3rd', '4th', '5th'][i], val: pad3(v) } : null).filter(Boolean),
+    ...(Array.isArray(r.complementary_numbers) ? r.complementary_numbers.map((n: number) => ({ label: 'Comp', val: pad3(n) })) : []),
+  ] as { label: string; val: string }[];
+  for (const p of prizes) {
+    if (bet.type === 'SUPER' && betNum === p.val) return p.label;
+    if (bet.type === 'BOX' && sort(betNum) === sort(p.val)) return p.label;
+  }
+  return '1st';
+}
 
 const card: React.CSSProperties = {
   background: '#fff', borderRadius: 20,
@@ -47,9 +64,12 @@ const sel: React.CSSProperties = {
   background: '#fff', color: '#111827', fontSize: 13, fontWeight: 600,
 };
 
+interface PrizeState { p1: string; p2: string; p3: string; p4: string; p5: string; }
+
 export function ResultsPage() {
   const [pendingLotteries, setPendingLotteries] = useState<any[]>([]);
-  const [winNumbers, setWinNumbers] = useState<Record<string, string>>({});
+  const [prizes, setPrizes] = useState<Record<string, PrizeState>>({});
+  const [compNums, setCompNums] = useState<Record<string, string[]>>({});
   const [declaring, setDeclaring] = useState<Record<string, boolean>>({});
   const [docFiles, setDocFiles] = useState<Record<string, File | null>>({});
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -71,7 +91,6 @@ export function ResultsPage() {
     setPendingLotteries((data || []).filter((l: any) => l.status === 'closed'));
   }, []);
 
-  // Fetch results and bets together so winners are never computed against an empty bets array
   const fetchDeclaredData = useCallback(async () => {
     const params: any = {};
     if (filterLottery) params.lottery_id = filterLottery;
@@ -97,12 +116,32 @@ export function ResultsPage() {
     return () => { socket.off('result:declared', handler); };
   }, [fetchPending, fetchDeclaredData]);
 
+  const getPrizes = (id: string): PrizeState => prizes[id] || { p1: '', p2: '', p3: '', p4: '', p5: '' };
+  const getComp = (id: string): string[] => compNums[id] || [''];
+
+  const setPrize = (id: string, key: keyof PrizeState, val: string) =>
+    setPrizes(p => ({ ...p, [id]: { ...getPrizes(id), [key]: val.replace(/\D/g, '').slice(0, 3) } }));
+
+  const setComp = (id: string, idx: number, val: string) =>
+    setCompNums(p => {
+      const arr = [...getComp(id)];
+      arr[idx] = val.replace(/\D/g, '').slice(0, 3);
+      return { ...p, [id]: arr };
+    });
+
+  const addComp = (id: string) =>
+    setCompNums(p => ({ ...p, [id]: [...getComp(id), ''] }));
+
+  const removeComp = (id: string, idx: number) =>
+    setCompNums(p => {
+      const arr = getComp(id).filter((_, i) => i !== idx);
+      return { ...p, [id]: arr.length ? arr : [''] };
+    });
+
   const declare = async (lotteryId: string) => {
-    const raw = winNumbers[lotteryId] || '';
-    if (!raw) return toast.error('Enter the 3-digit winning number');
-    const num = Number(raw);
-    if (isNaN(num) || num < 0 || num > 999) return toast.error('Winning number must be 000–999');
-    setDeclaring(p => ({ ...p, [lotteryId]: true }));
+    const p = getPrizes(lotteryId);
+    if (p.p1.length !== 3) return toast.error('Enter the 3-digit 1st prize number');
+    setDeclaring(prev => ({ ...prev, [lotteryId]: true }));
     try {
       let document_url: string | undefined;
       const file = docFiles[lotteryId];
@@ -114,14 +153,28 @@ export function ResultsPage() {
         });
         document_url = data.url;
       }
-      await api.post('/results/declare', { lottery_id: lotteryId, winning_number: num, document_url });
+
+      const comp = getComp(lotteryId).filter(v => v.length === 3).map(Number);
+
+      await api.post('/results/declare', {
+        lottery_id: lotteryId,
+        winning_number: Number(p.p1),
+        ...(p.p2.length === 3 && { prize_2: Number(p.p2) }),
+        ...(p.p3.length === 3 && { prize_3: Number(p.p3) }),
+        ...(p.p4.length === 3 && { prize_4: Number(p.p4) }),
+        ...(p.p5.length === 3 && { prize_5: Number(p.p5) }),
+        ...(comp.length > 0 && { complementary_numbers: comp }),
+        document_url,
+      });
+
       toast.success('Result declared!');
-      setWinNumbers(p => ({ ...p, [lotteryId]: '' }));
+      setPrizes(p => { const n = { ...p }; delete n[lotteryId]; return n; });
+      setCompNums(p => { const n = { ...p }; delete n[lotteryId]; return n; });
       setDocFiles(p => { const n = { ...p }; delete n[lotteryId]; return n; });
       fetchPending(); fetchDeclaredData();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to declare result');
-    } finally { setDeclaring(p => ({ ...p, [lotteryId]: false })); }
+    } finally { setDeclaring(prev => ({ ...prev, [lotteryId]: false })); }
   };
 
   const toggleExpand = (id: string) => setExpanded(prev => {
@@ -130,7 +183,6 @@ export function ResultsPage() {
     return s;
   });
 
-  // Apply filters to declared results
   const filteredResults = results.filter(r => {
     if (filterDate) {
       const drawDate = new Date(r.lotteries?.draw_time).toISOString().split('T')[0];
@@ -140,14 +192,21 @@ export function ResultsPage() {
     return true;
   });
 
-  // Per-result type breakdown — respects filterType
+  function getExtraPrizes(result: any): string[] {
+    return [result.prize_2, result.prize_3, result.prize_4, result.prize_5]
+      .filter((v: any) => v != null)
+      .map((v: number) => pad3(v))
+      .concat((Array.isArray(result.complementary_numbers) ? result.complementary_numbers : []).map((n: number) => pad3(n)));
+  }
+
   function getBreakdown(result: any) {
-    const winStr = String(result.winning_number).padStart(3, '0');
+    const winStr = pad3(result.winning_number);
+    const extraPrizes = getExtraPrizes(result);
     const lotteryBets = bets.filter(b => b.lottery_id === result.lottery_id);
     const typesToShow = filterType ? [filterType] : ALL_TYPES;
     return typesToShow.map(type => {
       const ofType = lotteryBets.filter(b => b.type === type);
-      const winners = ofType.filter(b => checkWin(b, winStr));
+      const winners = ofType.filter(b => checkWin(b, winStr, extraPrizes));
       const totalBetCount = ofType.reduce((s, b) => s + Number(b.count), 0);
       const winCount = winners.reduce((s, b) => s + Number(b.count), 0);
       const betAmount = ofType.reduce((s, b) => s + Number(b.amount), 0);
@@ -169,7 +228,7 @@ export function ResultsPage() {
 
     const rows: any[] = [];
     filteredResults.forEach(r => {
-      const winStr = String(r.winning_number).padStart(3, '0');
+      const winStr = pad3(r.winning_number);
       const breakdown = getBreakdown(r);
       const lotteryName = r.lotteries?.name || '-';
       const drawTime = new Date(r.lotteries?.draw_time).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
@@ -217,73 +276,108 @@ export function ResultsPage() {
             No lotteries pending result declaration
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
             {pendingLotteries.map(l => {
+              const p = getPrizes(l.id);
+              const comp = getComp(l.id);
               const selectedFile = docFiles[l.id] || null;
-              const ready = (winNumbers[l.id] || '').length === 3;
+              const ready = p.p1.length === 3;
+
+              const inp = (val: string, big?: boolean): React.CSSProperties => ({
+                width: '100%', border: `1.5px solid ${big && val.length === 3 ? '#7C3AED' : '#E5E7EB'}`,
+                borderRadius: 8, padding: big ? '9px 6px' : '6px 4px',
+                fontSize: big ? 20 : 13, fontWeight: 800, letterSpacing: big ? 6 : 3,
+                textAlign: 'center', background: '#F9FAFB', outline: 'none', color: '#111827',
+              });
+
               return (
-                <div key={l.id} style={{ ...card, padding: 22 }}>
-                  <div style={{ fontWeight: 800, fontSize: 15, color: '#111827', marginBottom: 4 }}>{l.name}</div>
-                  <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 16, fontWeight: 500 }}>
-                    {new Date(l.draw_time).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
-                  </div>
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <input
-                      type="text" inputMode="numeric" maxLength={3} placeholder="000"
-                      value={winNumbers[l.id] || ''}
-                      onChange={e => setWinNumbers(p => ({ ...p, [l.id]: e.target.value.replace(/\D/g, '').slice(0, 3) }))}
-                      style={{ flex: 1, border: '2px solid #E0E5F2', borderRadius: 12, padding: '12px 14px', color: '#111827', fontSize: 26, fontWeight: 800, letterSpacing: 10, textAlign: 'center', background: '#F9FAFB', outline: 'none' }}
-                    />
-                    <button
-                      onClick={() => declare(l.id)}
-                      disabled={declaring[l.id] || !ready}
-                      style={{
-                        padding: '10px 18px', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap',
-                        background: ready ? 'linear-gradient(135deg, #4318FF 0%, #9F7AEA 100%)' : '#F4F7FE',
-                        color: ready ? '#fff' : '#6B7280',
-                        cursor: ready ? 'pointer' : 'not-allowed',
-                        boxShadow: ready ? '0 4px 14px rgba(124,58,237,0.3)' : 'none',
-                      }}
-                    >
-                      {declaring[l.id] ? 'Declaring...' : 'Declare'}
+                <div key={l.id} style={{ ...card, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+                  {/* Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 13, color: '#111827' }}>{l.name}</div>
+                      <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 1 }}>
+                        {new Date(l.draw_time).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
+                      </div>
+                    </div>
+                    <button onClick={() => declare(l.id)} disabled={declaring[l.id] || !ready}
+                      style={{ padding: '6px 14px', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 12,
+                        background: ready ? '#4318FF' : '#F3F4F6', color: ready ? '#fff' : '#9CA3AF',
+                        cursor: ready ? 'pointer' : 'not-allowed' }}>
+                      {declaring[l.id] ? '…' : 'Declare'}
                     </button>
                   </div>
 
-                  {/* Result document picker */}
-                  <div style={{ marginTop: 12 }}>
-                    <input
-                      ref={el => { fileInputRefs.current[l.id] = el; }}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,application/pdf"
-                      style={{ display: 'none' }}
-                      onChange={e => {
-                        const f = e.target.files?.[0] || null;
-                        if (f && f.size > 1024 * 1024) {
-                          toast.error('File must be under 1 MB');
-                          e.target.value = '';
-                          return;
-                        }
-                        setDocFiles(p => ({ ...p, [l.id]: f }));
-                      }}
-                    />
-                    {selectedFile ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#F0F4FF', borderRadius: 10, border: '1px solid #C7D2FE' }}>
-                        <FileText size={14} color="#4318FF" style={{ flexShrink: 0 }} />
-                        <span style={{ flex: 1, fontSize: 12, color: '#4318FF', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedFile.name}</span>
-                        <span style={{ fontSize: 11, color: '#9CA3AF', flexShrink: 0 }}>{(selectedFile.size / 1024).toFixed(0)} KB</span>
-                        <button type="button" onClick={() => { setDocFiles(p => ({ ...p, [l.id]: null })); if (fileInputRefs.current[l.id]) fileInputRefs.current[l.id]!.value = ''; }}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 2, display: 'flex', alignItems: 'center' }}>
-                          <X size={13} />
-                        </button>
-                      </div>
-                    ) : (
-                      <button type="button" onClick={() => fileInputRefs.current[l.id]?.click()}
-                        style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 12px', background: '#F9FAFB', border: '1.5px dashed #D1D5DB', borderRadius: 10, color: '#6B7280', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%' }}>
-                        <Paperclip size={13} />
-                        Attach result document (PDF / image, max 1 MB) — optional
-                      </button>
-                    )}
+                  {/* 1st prize */}
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#7C3AED', marginBottom: 4 }}>1st Prize ★</div>
+                    <input type="text" inputMode="numeric" maxLength={3} placeholder="000"
+                      value={p.p1} onChange={e => setPrize(l.id, 'p1', e.target.value)}
+                      style={inp(p.p1, true)} />
                   </div>
+
+                  {/* 2nd–5th in 2-col grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                    {(['p2','p3','p4','p5'] as (keyof PrizeState)[]).map((key, idx) => (
+                      <div key={key}>
+                        <div style={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF', marginBottom: 3 }}>
+                          {['2nd','3rd','4th','5th'][idx]}
+                        </div>
+                        <input type="text" inputMode="numeric" maxLength={3} placeholder="000"
+                          value={p[key]} onChange={e => setPrize(l.id, key, e.target.value)}
+                          style={inp(p[key])} />
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Complementary */}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#6B7280' }}>Complementary</span>
+                      <button type="button" onClick={() => addComp(l.id)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '2px 7px', background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 5, color: '#7C3AED', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+                        <Plus size={10} /> Add
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                      {comp.map((val, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <input type="text" inputMode="numeric" maxLength={3} placeholder="000"
+                            value={val} onChange={e => setComp(l.id, idx, e.target.value)}
+                            style={{ width: 52, border: '1.5px solid #E5E7EB', borderRadius: 6, padding: '5px 3px', fontSize: 12, fontWeight: 800, letterSpacing: 3, textAlign: 'center', background: '#F9FAFB', outline: 'none', color: '#111827' }} />
+                          {(comp.length > 1 || idx > 0) && (
+                            <button type="button" onClick={() => removeComp(l.id, idx)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#D1D5DB', padding: 0, lineHeight: 1 }}>
+                              <X size={11} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Document picker */}
+                  <input ref={el => { fileInputRefs.current[l.id] = el; }} type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf" style={{ display: 'none' }}
+                    onChange={e => {
+                      const f = e.target.files?.[0] || null;
+                      if (f && f.size > 1024 * 1024) { toast.error('File must be under 1 MB'); e.target.value = ''; return; }
+                      setDocFiles(prev => ({ ...prev, [l.id]: f }));
+                    }} />
+                  {selectedFile ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: '#F0F4FF', borderRadius: 8, border: '1px solid #C7D2FE' }}>
+                      <FileText size={12} color="#4318FF" style={{ flexShrink: 0 }} />
+                      <span style={{ flex: 1, fontSize: 11, color: '#4318FF', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedFile.name}</span>
+                      <button type="button" onClick={() => { setDocFiles(prev => ({ ...prev, [l.id]: null })); if (fileInputRefs.current[l.id]) fileInputRefs.current[l.id]!.value = ''; }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 0 }}><X size={12} /></button>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={() => fileInputRefs.current[l.id]?.click()}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', background: '#F9FAFB', border: '1.5px dashed #E5E7EB', borderRadius: 8, color: '#9CA3AF', fontSize: 11, fontWeight: 600, cursor: 'pointer', width: '100%' }}>
+                      <Paperclip size={12} /> Attach document (optional)
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -305,7 +399,7 @@ export function ResultsPage() {
             )}
           </div>
           {hasFilters && (
-            <button onClick={() => { setFilterDate(''); setFilterLottery(''); setFilterAgent(''); }}
+            <button onClick={() => { setFilterDate(''); setFilterLottery(''); setFilterAgent(''); setFilterType(''); }}
               style={{ fontSize: 12, color: '#EE5D50', background: '#FEF3F2', border: 'none', borderRadius: 8, padding: '5px 12px', cursor: 'pointer', fontWeight: 600 }}>
               Clear filters
             </button>
@@ -314,13 +408,10 @@ export function ResultsPage() {
 
         {/* Filter bar */}
         <div style={{ ...card, marginBottom: 16, overflow: 'hidden' }}>
-          {/* Header row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 18px', borderBottom: '1px solid #F3F4F6', background: '#FAFBFF' }}>
             <Filter size={13} color="#A3AED0" />
             <span style={{ fontSize: 11, color: '#A3AED0', fontWeight: 700, letterSpacing: 1 }}>FILTERS</span>
           </div>
-
-          {/* Dropdowns row */}
           <div style={{ display: 'flex', gap: 0, flexWrap: 'wrap', borderBottom: '1px solid #F3F4F6' }}>
             {[
               {
@@ -361,8 +452,6 @@ export function ResultsPage() {
               </div>
             ))}
           </div>
-
-          {/* Type chips row */}
           <div style={{ padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 10, color: '#A3AED0', fontWeight: 700, letterSpacing: 0.8, whiteSpace: 'nowrap' }}>TYPE</span>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -393,58 +482,90 @@ export function ResultsPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {filteredResults.map(r => {
-              const winStr = String(r.winning_number).padStart(3, '0');
+              const winStr = pad3(r.winning_number);
               const breakdown = getBreakdown(r);
               const totalWinAmount = breakdown.reduce((s, row) => s + row.winAmount, 0);
               const totalWinCount = breakdown.reduce((s, row) => s + row.winCount, 0);
               const isExpanded = expanded.has(r.id);
 
+              const allPrizes = [
+                { label: '1st Prize', value: r.winning_number },
+                { label: '2nd Prize', value: r.prize_2 },
+                { label: '3rd Prize', value: r.prize_3 },
+                { label: '4th Prize', value: r.prize_4 },
+                { label: '5th Prize', value: r.prize_5 },
+              ].filter(p => p.value != null);
+
+              const compList: number[] = Array.isArray(r.complementary_numbers) ? r.complementary_numbers : [];
+
               return (
                 <div key={r.id} style={{ ...card, overflow: 'hidden' }}>
                   {/* Result header */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 20px', flexWrap: 'wrap' }}>
-                    <div style={{ flex: 1, minWidth: 160 }}>
-                      <div style={{ fontWeight: 800, fontSize: 15, color: '#111827' }}>{r.lotteries?.name}</div>
-                      <div style={{ fontSize: 11, color: '#6B7280', marginTop: 3, fontWeight: 500 }}>
-                        {new Date(r.lotteries?.draw_time).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
+                  <div style={{ padding: '14px 18px' }}>
+                    {/* Top row: name + date + buttons */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                      <div style={{ flex: 1 }}>
+                        <span style={{ fontWeight: 800, fontSize: 14, color: '#111827' }}>{r.lotteries?.name}</span>
+                        <span style={{ fontSize: 11, color: '#9CA3AF', marginLeft: 10, fontWeight: 500 }}>
+                          {new Date(r.lotteries?.draw_time).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
+                        </span>
                       </div>
-                    </div>
-
-                    {/* Winning number bubbles */}
-                    <div style={{ display: 'flex', gap: 5 }}>
-                      {winStr.split('').map((d, i) => (
-                        <div key={i} style={{ width: 38, height: 46, background: '#F3F4F6', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <div style={{ fontSize: 22, fontWeight: 800, color: '#111827' }}>{d}</div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Document link */}
-                    {r.document_url && (
-                      <a href={r.document_url} target="_blank" rel="noopener noreferrer"
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: '#F0F4FF', border: '1px solid #C7D2FE', borderRadius: 20, color: '#4318FF', fontSize: 12, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
-                        <FileText size={12} /> Result Doc <ExternalLink size={11} />
-                      </a>
-                    )}
-
-                    {/* Summary chips */}
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {r.document_url && (
+                        <a href={r.document_url} target="_blank" rel="noopener noreferrer"
+                          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: '#F0F4FF', border: '1px solid #C7D2FE', borderRadius: 16, color: '#4318FF', fontSize: 11, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                          <FileText size={11} /> Doc <ExternalLink size={10} />
+                        </a>
+                      )}
                       {totalWinCount > 0 ? (
-                        <div style={{ padding: '5px 14px', background: '#E6FAF5', borderRadius: 20, fontSize: 12, fontWeight: 700, color: '#05CD99', whiteSpace: 'nowrap' }}>
-                          <Trophy size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                        <div style={{ padding: '4px 12px', background: '#E6FAF5', borderRadius: 16, fontSize: 12, fontWeight: 700, color: '#05CD99', whiteSpace: 'nowrap' }}>
+                          <Trophy size={11} style={{ marginRight: 4, verticalAlign: 'middle' }} />
                           {totalWinCount} win{totalWinCount !== 1 ? 's' : ''} · {fmt(totalWinAmount)}
                         </div>
                       ) : (
-                        <div style={{ padding: '5px 14px', background: '#F9FAFB', borderRadius: 20, fontSize: 12, fontWeight: 600, color: '#6B7280' }}>No winners</div>
+                        <div style={{ padding: '4px 12px', background: '#F9FAFB', borderRadius: 16, fontSize: 11, fontWeight: 600, color: '#9CA3AF' }}>No winners</div>
                       )}
                       <button onClick={() => toggleExpand(r.id)} style={{
-                        padding: '5px 14px', background: '#F5F3FF', border: 'none', borderRadius: 20,
+                        padding: '4px 12px', background: '#F5F3FF', border: 'none', borderRadius: 16,
                         fontSize: 12, fontWeight: 700, color: '#7C3AED', cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: 4,
                       }}>
                         {isExpanded ? 'Hide' : 'Details'}
                         {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                       </button>
+                    </div>
+
+                    {/* Prizes row — horizontal wrap */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 18px', alignItems: 'center' }}>
+                      {allPrizes.map((prize, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: i === 0 ? '#7C3AED' : '#9CA3AF', minWidth: 26, flexShrink: 0 }}>
+                            {['1st','2nd','3rd','4th','5th'][i]}
+                          </span>
+                          <div style={{ display: 'flex', gap: 3 }}>
+                            {pad3(prize.value!).split('').map((d, di) => (
+                              <div key={di} style={{
+                                width: i === 0 ? 30 : 24, height: i === 0 ? 36 : 28,
+                                background: i === 0 ? '#F5F3FF' : '#F3F4F6', borderRadius: 7,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              }}>
+                                <span style={{ fontSize: i === 0 ? 17 : 13, fontWeight: 800, color: i === 0 ? '#7C3AED' : '#374151' }}>{d}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      {compList.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF' }}>Comp</span>
+                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                            {compList.map((n, i) => (
+                              <span key={i} style={{ padding: '2px 8px', background: '#F0FDF9', border: '1px solid #A7F3D0', borderRadius: 5, fontSize: 12, fontWeight: 800, color: '#059669', letterSpacing: 1 }}>
+                                {pad3(n)}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -500,19 +621,18 @@ export function ResultsPage() {
                         </table>
                       </div>
 
-                      {/* Winning bet rows per agent */}
                       {totalWinCount > 0 && (
                         <div style={{ marginTop: 16 }}>
                           <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', letterSpacing: 1, marginBottom: 10 }}>WINNING BETS</div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            {bets.filter(b => b.lottery_id === r.lottery_id && checkWin(b, winStr) && (!filterType || b.type === filterType)).map((b: any, i: number) => (
+                            {bets.filter(b => b.lottery_id === r.lottery_id && checkWin(b, winStr, getExtraPrizes(r)) && (!filterType || b.type === filterType)).map((b: any, i: number) => (
                               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#fff', borderRadius: 12, padding: '10px 14px', boxShadow: '0 1px 6px rgba(112,144,176,0.08)', flexWrap: 'wrap' }}>
                                 <span style={{ fontWeight: 700, fontSize: 13, color: '#111827', minWidth: 80 }}>{b.users?.username || '—'}</span>
                                 {b.customer_name && <span style={{ fontSize: 11, color: '#6B7280' }}>{b.customer_name}</span>}
                                 <span style={{ width: 34, height: 26, borderRadius: 7, background: (TYPE_COLOR[b.type] || '#6B7280') + '18', color: TYPE_COLOR[b.type] || '#6B7280', fontWeight: 700, fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{b.type}</span>
-                                <span style={{ fontWeight: 800, fontSize: 16, color: '#111827', letterSpacing: 2 }}>{String(b.number).padStart(b.tab, '0')}</span>
+                                <span style={{ fontWeight: 800, fontSize: 16, color: '#111827', letterSpacing: 2 }}>{String(b.number).padStart(3, '0')}</span>
                                 <span style={{ fontSize: 12, color: '#6B7280' }}>×{b.count}</span>
-                                <span style={{ marginLeft: 'auto', padding: '3px 12px', background: '#05CD99', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#fff' }}>WON</span>
+                                <span style={{ marginLeft: 'auto', padding: '3px 12px', background: '#05CD99', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#fff' }}>{getWonPrize(b, winStr, r)} WON</span>
                               </div>
                             ))}
                           </div>

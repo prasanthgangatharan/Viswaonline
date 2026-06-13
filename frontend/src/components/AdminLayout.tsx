@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import adminApi from '../lib/adminApi';
-import { LayoutDashboard, Ticket, Users, List, Trophy, LogOut, ShieldAlert, Activity, ArrowUpFromLine } from 'lucide-react';
+import { LayoutDashboard, Ticket, Users, List, Trophy, LogOut, ShieldAlert, Activity, ArrowUpFromLine, Settings } from 'lucide-react';
 
 const navSections = [
   {
@@ -24,7 +24,8 @@ const navSections = [
   {
     label: 'System',
     items: [
-      { to: '/admin/monitor', icon: Activity, label: 'Live Monitor' },
+      { to: '/admin/monitor',     icon: Activity,  label: 'Live Monitor' },
+      { to: '/admin/management',  icon: Settings,  label: 'Management' },
     ],
   },
 ];
@@ -50,8 +51,8 @@ export function AdminLayout() {
       {/* Mobile Top Header */}
       <div className="admin-mobile-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(135deg, #7C3AED 0%, #A78BFA 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>L</span>
+          <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(135deg, #4318FF 0%, #9F7AEA 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>V</span>
           </div>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>{currentPage}</div>
         </div>
@@ -70,11 +71,11 @@ export function AdminLayout() {
         {/* Logo */}
         <div style={{ padding: '24px 20px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 12, background: 'linear-gradient(135deg, #7C3AED 0%, #A78BFA 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <span style={{ fontSize: 17, fontWeight: 800, color: '#fff' }}>L</span>
+            <div style={{ width: 38, height: 38, borderRadius: 12, background: 'linear-gradient(135deg, #4318FF 0%, #9F7AEA 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <span style={{ fontSize: 17, fontWeight: 800, color: '#fff' }}>V</span>
             </div>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#111827', letterSpacing: -0.3 }}>LottoAdmin</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#111827', letterSpacing: -0.3 }}>Viswa Online</div>
               <div style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 500 }}>Management Panel</div>
             </div>
           </div>

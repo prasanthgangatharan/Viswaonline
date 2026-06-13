@@ -29,6 +29,11 @@ export class ResultsService {
       .insert({
         lottery_id: dto.lottery_id,
         winning_number: dto.winning_number,
+        prize_2: dto.prize_2 ?? null,
+        prize_3: dto.prize_3 ?? null,
+        prize_4: dto.prize_4 ?? null,
+        prize_5: dto.prize_5 ?? null,
+        complementary_numbers: dto.complementary_numbers ?? [],
         document_url: dto.document_url ?? null,
       })
       .select()

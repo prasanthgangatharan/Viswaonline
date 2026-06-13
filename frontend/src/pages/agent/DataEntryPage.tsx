@@ -33,7 +33,7 @@ export function DataEntryPage() {
   const { lotteryId: selectedId } = useParams<{ lotteryId: string }>();
 
   const [lottery, setLottery] = useState<any>(null);
-  const [tab, setTab] = useState(1);
+  const [tab, setTab] = useState(3);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [numInput, setNumInput] = useState('');
   const [cntInput, setCntInput] = useState('');
@@ -234,7 +234,7 @@ export function DataEntryPage() {
                       {e.type}
                     </span>
                     <span style={{ fontSize: 16, fontWeight: 800, color: '#111827', letterSpacing: 2, flex: 1 }}>
-                      {String(e.number).padStart(e.tab, '0')}
+                      {String(e.number).padStart(3, '0')}
                     </span>
                     <span style={{ fontSize: 12, color: '#9CA3AF', fontWeight: 600 }}>×{e.count}</span>
                     <span style={{ fontSize: 13, fontWeight: 800, color: '#05CD99' }}>Rs.{e.amount}</span>
@@ -328,7 +328,7 @@ export function DataEntryPage() {
                       </span>
                     </td>
                     <td style={{ padding: '7px 10px', fontWeight: 700, fontSize: 15, color: '#111827', letterSpacing: 1 }}>
-                      {String(e.number).padStart(e.tab, '0')}
+                      {String(e.number).padStart(3, '0')}
                     </td>
                     <td style={{ padding: '7px 10px', fontSize: 13, color: '#111827', fontWeight: 600 }}>{e.count}</td>
                     <td style={{ padding: '7px 10px', fontSize: 13, fontWeight: 700, color: '#111827' }}>Rs.{e.amount}</td>

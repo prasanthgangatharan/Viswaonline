@@ -24,6 +24,7 @@ import { ResultsPage } from './pages/admin/ResultsPage';
 import { RiskViewPage } from './pages/admin/RiskViewPage';
 import { MonitorPage } from './pages/admin/MonitorPage';
 import { OverflowBetsPage } from './pages/admin/OverflowBetsPage';
+import { AdminManagementPage } from './pages/admin/AdminManagementPage';
 
 import { AgentLoginPage } from './pages/agent/AgentLoginPage';
 import { HomePage } from './pages/agent/HomePage';
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="risk" element={<RiskViewPage />} />
           <Route path="overflow" element={<OverflowBetsPage />} />
           <Route path="monitor" element={<MonitorPage />} />
+          <Route path="management" element={<AdminManagementPage />} />
         </Route>
 
         <Route path="/agent" element={<ProtectedRoute role="agent"><AgentLayout /></ProtectedRoute>}>

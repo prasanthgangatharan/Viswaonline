@@ -22,7 +22,7 @@ export class DashboardService {
 
     const [{ data: recentBets }, { data: overflows }] = await Promise.all([
       sb.from('bets')
-        .select('id, ticket_id, agent_id, lottery_id, type, number, count, amount, win_amount, created_at, users!bets_agent_id_fkey(username), lotteries(name)')
+        .select('id, ticket_id, agent_id, lottery_id, type, tab, number, count, amount, win_amount, created_at, users!bets_agent_id_fkey(username), lotteries(name)')
         .order('created_at', { ascending: false })
         .limit(100),
       sb.from('overflow_bets')

@@ -60,7 +60,7 @@ export function RiskViewPage() {
                 return (
                   <tr key={i} style={{ background: highRisk ? '#FFFBF0' : i % 2 === 0 ? '#fff' : '#FAFAFA' }}>
                     <td style={{ ...td, fontWeight: 600 }}>{r.lottery_name}</td>
-                    <td style={{ ...td, fontWeight: 800, fontSize: 18, letterSpacing: 1 }}>{r.number}</td>
+                    <td style={{ ...td, fontWeight: 800, fontSize: 18, letterSpacing: 1 }}>{String(r.number).padStart(3, '0')}</td>
                     <td style={td}>
                       <span style={{ padding: '4px 12px', background: '#F5F3FF', color: '#7C3AED', borderRadius: 8, fontSize: 13, fontWeight: 700 }}>{r.type}</span>
                     </td>
