@@ -7,57 +7,56 @@ import { Trophy, ChevronUp, ChevronDown, FileText, ExternalLink } from 'lucide-r
 function checkWin(bet: any, winStr: string, extraPrizes: string[] = []): boolean {
   const tabNum = Number(bet.tab);
   const betNum = String(bet.number).padStart(tabNum, '0');
-  const allPrizes = [winStr, ...extraPrizes];
   if (tabNum === 1) {
-    return allPrizes.some(p => {
-      const [pd1, pd2, pd3] = p.split('');
-      if (bet.type === 'A') return betNum === pd1;
-      if (bet.type === 'B') return betNum === pd2;
-      if (bet.type === 'C') return betNum === pd3;
-      return false;
-    });
+    const [pd1, pd2, pd3] = winStr.split('');
+    if (bet.type === 'A') return betNum === pd1;
+    if (bet.type === 'B') return betNum === pd2;
+    if (bet.type === 'C') return betNum === pd3;
+    return false;
   } else if (tabNum === 2) {
-    return allPrizes.some(p => {
-      const [pd1, pd2, pd3] = p.split('');
-      if (bet.type === 'AB') return betNum === pd1 + pd2;
-      if (bet.type === 'BC') return betNum === pd2 + pd3;
-      if (bet.type === 'AC') return betNum === pd1 + pd3;
-      return false;
-    });
+    const [pd1, pd2, pd3] = winStr.split('');
+    if (bet.type === 'AB') return betNum === pd1 + pd2;
+    if (bet.type === 'BC') return betNum === pd2 + pd3;
+    if (bet.type === 'AC') return betNum === pd1 + pd3;
+    return false;
   } else if (tabNum === 3) {
     const sort = (s: string) => s.split('').sort().join('');
-    if (bet.type === 'SUPER') return allPrizes.some(p => betNum === p);
+    if (bet.type === 'SUPER') return [winStr, ...extraPrizes].some(p => betNum === p);
     if (bet.type === 'BOX') return sort(betNum) === sort(winStr);
   }
   return false;
 }
 
 function pad3(n: number | string) { return String(n).padStart(3, '0'); }
+function displayNumber(n: number | string) { return String(Number(n)); }
 
-function getWonPrize(bet: any, winStr: string, r: any): string {
+function getWonPrizes(bet: any, winStr: string, r: any): string[] {
   const tabNum = Number(bet.tab);
   const betNum = String(bet.number).padStart(tabNum, '0');
-  if (bet.type === 'BOX') return '1st';
+  if (bet.type === 'BOX') return checkWin(bet, winStr) ? ['1st'] : [];
   const prizes = [
     { label: '1st', val: winStr },
     ...[r.prize_2, r.prize_3, r.prize_4, r.prize_5].map((v: any, i: number) => v != null ? { label: ['2nd', '3rd', '4th', '5th'][i], val: pad3(v) } : null).filter(Boolean),
     ...(Array.isArray(r.complementary_numbers) ? r.complementary_numbers.map((n: number) => ({ label: 'Comp', val: pad3(n) })) : []),
   ] as { label: string; val: string }[];
+  const labels: string[] = [];
   for (const p of prizes) {
     const [pd1, pd2, pd3] = p.val.split('');
     if (tabNum === 1) {
-      if (bet.type === 'A' && betNum === pd1) return p.label;
-      if (bet.type === 'B' && betNum === pd2) return p.label;
-      if (bet.type === 'C' && betNum === pd3) return p.label;
+      if (p.label !== '1st') continue;
+      if (bet.type === 'A' && betNum === pd1) labels.push(p.label);
+      if (bet.type === 'B' && betNum === pd2) labels.push(p.label);
+      if (bet.type === 'C' && betNum === pd3) labels.push(p.label);
     } else if (tabNum === 2) {
-      if (bet.type === 'AB' && betNum === pd1 + pd2) return p.label;
-      if (bet.type === 'BC' && betNum === pd2 + pd3) return p.label;
-      if (bet.type === 'AC' && betNum === pd1 + pd3) return p.label;
+      if (p.label !== '1st') continue;
+      if (bet.type === 'AB' && betNum === pd1 + pd2) labels.push(p.label);
+      if (bet.type === 'BC' && betNum === pd2 + pd3) labels.push(p.label);
+      if (bet.type === 'AC' && betNum === pd1 + pd3) labels.push(p.label);
     } else if (tabNum === 3) {
-      if (bet.type === 'SUPER' && betNum === p.val) return p.label;
+      if (bet.type === 'SUPER' && betNum === p.val) labels.push(p.label);
     }
   }
-  return '1st';
+  return labels;
 }
 
 const TYPE_COLOR: Record<string, string> = {
@@ -124,6 +123,7 @@ export function ShopResultPage() {
           .concat((Array.isArray(r.complementary_numbers) ? r.complementary_numbers : []).map((n: number) => String(n).padStart(3, '0')));
         const lotteryBets = myBets.filter(b => b.lottery_id === r.lottery_id);
         const winningBets = lotteryBets.filter(b => checkWin(b, winStr, extraPrizes));
+        const winningCount = winningBets.reduce((s, b) => s + Number(b.count) * getWonPrizes(b, winStr, r).length, 0);
         const isExpanded = expanded.has(r.id);
         const hasWin = winningBets.length > 0;
 
@@ -158,7 +158,7 @@ export function ShopResultPage() {
                   <button onClick={() => toggleExpand(r.id)}
                     style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: '#E6FAF5', border: 'none', borderRadius: 14, color: '#05CD99', fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                     <Trophy size={12} />
-                    {winningBets.length} WIN{winningBets.length > 1 ? 'S' : ''}
+                    {winningCount} WIN{winningCount !== 1 ? 'S' : ''}
                     {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
                   </button>
                 ) : (
@@ -180,7 +180,7 @@ export function ShopResultPage() {
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: i === 0 ? '#7C3AED' : '#9CA3AF', minWidth: 24, flexShrink: 0 }}>{prize.label}</span>
                     <div style={{ display: 'flex', gap: 3 }}>
-                      {pad3(prize.value!).split('').map((d, di) => (
+                      {displayNumber(prize.value!).split('').map((d, di) => (
                         <div key={di} style={{ width: i === 0 ? 28 : 22, height: i === 0 ? 34 : 26, background: i === 0 ? '#F5F3FF' : '#E5E7EB', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <span style={{ fontSize: i === 0 ? 15 : 12, fontWeight: 800, color: i === 0 ? '#7C3AED' : '#111827' }}>{d}</span>
                         </div>
@@ -194,7 +194,7 @@ export function ShopResultPage() {
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                       {r.complementary_numbers.map((n: number, i: number) => (
                         <span key={i} style={{ padding: '2px 7px', background: '#F0FDF9', border: '1px solid #A7F3D0', borderRadius: 5, fontSize: 11, fontWeight: 800, color: '#059669', letterSpacing: 1 }}>
-                          {pad3(n)}
+                          {displayNumber(n)}
                         </span>
                       ))}
                     </div>
@@ -210,10 +210,10 @@ export function ShopResultPage() {
                   return (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fff', borderRadius: 12, padding: '10px 14px', boxShadow: '0 1px 6px rgba(112,144,176,0.08)' }}>
                       <span style={{ width: 30, height: 30, borderRadius: 8, background: color + '18', color, fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{b.type}</span>
-                      <span style={{ fontWeight: 800, fontSize: 18, color: '#111827', letterSpacing: 2 }}>{String(b.number).padStart(3, '0')}</span>
+                      <span style={{ fontWeight: 800, fontSize: 18, color: '#111827', letterSpacing: 2 }}>{displayNumber(b.number)}</span>
                       <span style={{ fontSize: 12, color: '#6B7280' }}>x{b.count}</span>
                       {b.customer_name && <span style={{ fontSize: 11, color: '#111827', background: '#F9FAFB', borderRadius: 6, padding: '2px 8px', fontWeight: 600 }}>{b.customer_name}</span>}
-                      <span style={{ marginLeft: 'auto', padding: '3px 12px', background: '#05CD99', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#fff' }}>{getWonPrize(b, winStr, r)} WON</span>
+                      <span style={{ marginLeft: 'auto', padding: '3px 12px', background: '#05CD99', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#fff' }}>{getWonPrizes(b, winStr, r).join(', ')} WON</span>
                     </div>
                   );
                 })}

@@ -4,7 +4,7 @@ import { Pagination } from '../../components/Pagination';
 
 const PAGE_SIZE = 20;
 
-function pad(n: number, len: number) { return String(n).padStart(len, '0'); }
+function displayNumber(n: number | string) { return String(Number(n)); }
 
 export function OverflowBetsPage() {
   const [rows, setRows] = useState<any[]>([]);
@@ -97,7 +97,7 @@ export function OverflowBetsPage() {
                     <td style={td}>
                       <span style={{ padding: '4px 12px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: '#EBF3FF', color: '#2B73FF' }}>{r.type}</span>
                     </td>
-                    <td style={{ ...td, fontWeight: 800, fontSize: 17, letterSpacing: 2 }}>{pad(r.number, 3)}</td>
+                    <td style={{ ...td, fontWeight: 800, fontSize: 17, letterSpacing: 2 }}>{displayNumber(r.number)}</td>
                     <td style={{ ...td, color: '#6B7280' }}>{r.requested_count}</td>
                     <td style={{ ...td, color: '#05CD99', fontWeight: 700 }}>{r.placed_count}</td>
                     <td style={td}>

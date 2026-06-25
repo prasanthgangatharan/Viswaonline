@@ -9,6 +9,7 @@ import autoTable from 'jspdf-autotable';
 const ALL_TYPES = ['A', 'B', 'C', 'AB', 'BC', 'AC', 'SUPER', 'BOX'];
 const PAGE_SIZE = 20;
 function fmt(n: number) { return `Rs.${Math.round(n).toLocaleString('en-IN')}`; }
+function displayNumber(n: number | string) { return String(Number(n)); }
 
 export function AgentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -70,7 +71,7 @@ export function AgentDetailPage() {
         b.ticket_id || '-',
         b.lotteries?.name || '-',
         b.type,
-        String(b.number).padStart(3, '0'),
+        displayNumber(b.number),
         b.count,
         `Rs.${Math.round(b.amount).toLocaleString('en-IN')}`,
         new Date(b.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -185,7 +186,7 @@ export function AgentDetailPage() {
                       <span style={{ padding: '3px 10px', background: '#F5F3FF', color: '#7C3AED', borderRadius: 8, fontSize: 12, fontWeight: 700 }}>{b.lotteries?.name}</span>
                     </td>
                     <td style={{ ...td, fontWeight: 700 }}>{b.type}</td>
-                    <td style={{ ...td, fontWeight: 800, fontSize: 16, letterSpacing: 1 }}>{String(b.number).padStart(3, '0')}</td>
+                    <td style={{ ...td, fontWeight: 800, fontSize: 16, letterSpacing: 1 }}>{displayNumber(b.number)}</td>
                     <td style={{ ...td, color: '#6B7280' }}>{b.count}</td>
                     <td style={{ ...td, fontWeight: 700, color: '#05CD99' }}>{fmt(b.amount)}</td>
                     <td style={{ ...td, color: '#6B7280', fontSize: 12 }}>{new Date(b.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>

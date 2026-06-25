@@ -9,26 +9,21 @@ import autoTable from 'jspdf-autotable';
 function checkWin(bet: any, winStr: string, extraPrizes: string[] = []): boolean {
   const tabNum = Number(bet.tab);
   const betNum = String(bet.number).padStart(tabNum, '0');
-  const allPrizes = [winStr, ...extraPrizes];
   if (tabNum === 1) {
-    return allPrizes.some(p => {
-      const [pd1, pd2, pd3] = p.split('');
-      if (bet.type === 'A') return betNum === pd1;
-      if (bet.type === 'B') return betNum === pd2;
-      if (bet.type === 'C') return betNum === pd3;
-      return false;
-    });
+    const [pd1, pd2, pd3] = winStr.split('');
+    if (bet.type === 'A') return betNum === pd1;
+    if (bet.type === 'B') return betNum === pd2;
+    if (bet.type === 'C') return betNum === pd3;
+    return false;
   } else if (tabNum === 2) {
-    return allPrizes.some(p => {
-      const [pd1, pd2, pd3] = p.split('');
-      if (bet.type === 'AB') return betNum === pd1 + pd2;
-      if (bet.type === 'BC') return betNum === pd2 + pd3;
-      if (bet.type === 'AC') return betNum === pd1 + pd3;
-      return false;
-    });
+    const [pd1, pd2, pd3] = winStr.split('');
+    if (bet.type === 'AB') return betNum === pd1 + pd2;
+    if (bet.type === 'BC') return betNum === pd2 + pd3;
+    if (bet.type === 'AC') return betNum === pd1 + pd3;
+    return false;
   } else if (tabNum === 3) {
     const sort = (s: string) => s.split('').sort().join('');
-    if (bet.type === 'SUPER') return allPrizes.some(p => betNum === p);
+    if (bet.type === 'SUPER') return [winStr, ...extraPrizes].some(p => betNum === p);
     if (bet.type === 'BOX') return sort(betNum) === sort(winStr);
   }
   return false;
@@ -43,31 +38,35 @@ const ALL_TYPES = ['A', 'B', 'C', 'AB', 'BC', 'AC', 'SUPER', 'BOX'];
 
 function fmt(n: number) { return `Rs.${Math.round(n).toLocaleString('en-IN')}`; }
 function pad3(n: number | string) { return String(n).padStart(3, '0'); }
+function displayNumber(n: number | string) { return String(Number(n)); }
 
-function getWonPrize(bet: any, winStr: string, r: any): string {
+function getWonPrizes(bet: any, winStr: string, r: any): string[] {
   const tabNum = Number(bet.tab);
   const betNum = String(bet.number).padStart(tabNum, '0');
-  if (bet.type === 'BOX') return '1st';
+  if (bet.type === 'BOX') return checkWin(bet, winStr) ? ['1st'] : [];
   const prizes = [
     { label: '1st', val: winStr },
     ...[r.prize_2, r.prize_3, r.prize_4, r.prize_5].map((v: any, i: number) => v != null ? { label: ['2nd', '3rd', '4th', '5th'][i], val: pad3(v) } : null).filter(Boolean),
     ...(Array.isArray(r.complementary_numbers) ? r.complementary_numbers.map((n: number) => ({ label: 'Comp', val: pad3(n) })) : []),
   ] as { label: string; val: string }[];
+  const labels: string[] = [];
   for (const p of prizes) {
     const [pd1, pd2, pd3] = p.val.split('');
     if (tabNum === 1) {
-      if (bet.type === 'A' && betNum === pd1) return p.label;
-      if (bet.type === 'B' && betNum === pd2) return p.label;
-      if (bet.type === 'C' && betNum === pd3) return p.label;
+      if (p.label !== '1st') continue;
+      if (bet.type === 'A' && betNum === pd1) labels.push(p.label);
+      if (bet.type === 'B' && betNum === pd2) labels.push(p.label);
+      if (bet.type === 'C' && betNum === pd3) labels.push(p.label);
     } else if (tabNum === 2) {
-      if (bet.type === 'AB' && betNum === pd1 + pd2) return p.label;
-      if (bet.type === 'BC' && betNum === pd2 + pd3) return p.label;
-      if (bet.type === 'AC' && betNum === pd1 + pd3) return p.label;
+      if (p.label !== '1st') continue;
+      if (bet.type === 'AB' && betNum === pd1 + pd2) labels.push(p.label);
+      if (bet.type === 'BC' && betNum === pd2 + pd3) labels.push(p.label);
+      if (bet.type === 'AC' && betNum === pd1 + pd3) labels.push(p.label);
     } else if (tabNum === 3) {
-      if (bet.type === 'SUPER' && betNum === p.val) return p.label;
+      if (bet.type === 'SUPER' && betNum === p.val) labels.push(p.label);
     }
   }
-  return '1st';
+  return labels;
 }
 
 const card: React.CSSProperties = {
@@ -163,7 +162,7 @@ export function ResultsPage() {
 
   const declare = async (lotteryId: string) => {
     const p = getPrizes(lotteryId);
-    if (p.p1.length !== 3) return toast.error('Enter the 3-digit 1st prize number');
+    if (!p.p1) return toast.error('Enter the 1st prize number');
     setDeclaring(prev => ({ ...prev, [lotteryId]: true }));
     try {
       let document_url: string | undefined;
@@ -177,15 +176,15 @@ export function ResultsPage() {
         document_url = data.url;
       }
 
-      const comp = getComp(lotteryId).filter(v => v.length === 3).map(Number);
+      const comp = getComp(lotteryId).filter(Boolean).map(Number);
 
       await api.post('/results/declare', {
         lottery_id: lotteryId,
         winning_number: Number(p.p1),
-        ...(p.p2.length === 3 && { prize_2: Number(p.p2) }),
-        ...(p.p3.length === 3 && { prize_3: Number(p.p3) }),
-        ...(p.p4.length === 3 && { prize_4: Number(p.p4) }),
-        ...(p.p5.length === 3 && { prize_5: Number(p.p5) }),
+        ...(p.p2 && { prize_2: Number(p.p2) }),
+        ...(p.p3 && { prize_3: Number(p.p3) }),
+        ...(p.p4 && { prize_4: Number(p.p4) }),
+        ...(p.p5 && { prize_5: Number(p.p5) }),
         ...(comp.length > 0 && { complementary_numbers: comp }),
         document_url,
       });
@@ -209,15 +208,15 @@ export function ResultsPage() {
   const startEdit = (r: any) => {
     setEditingId(r.id);
     setEditPrizes({
-      p1: r.winning_number != null ? pad3(r.winning_number) : '',
-      p2: r.prize_2 != null ? pad3(r.prize_2) : '',
-      p3: r.prize_3 != null ? pad3(r.prize_3) : '',
-      p4: r.prize_4 != null ? pad3(r.prize_4) : '',
-      p5: r.prize_5 != null ? pad3(r.prize_5) : '',
+      p1: r.winning_number != null ? displayNumber(r.winning_number) : '',
+      p2: r.prize_2 != null ? displayNumber(r.prize_2) : '',
+      p3: r.prize_3 != null ? displayNumber(r.prize_3) : '',
+      p4: r.prize_4 != null ? displayNumber(r.prize_4) : '',
+      p5: r.prize_5 != null ? displayNumber(r.prize_5) : '',
     });
     setEditCompNums(
       Array.isArray(r.complementary_numbers) && r.complementary_numbers.length > 0
-        ? r.complementary_numbers.map((n: number) => pad3(n))
+        ? r.complementary_numbers.map((n: number) => displayNumber(n))
         : ['']
     );
     setEditDocFile(null);
@@ -226,7 +225,7 @@ export function ResultsPage() {
   const cancelEdit = () => setEditingId(null);
 
   const saveEdit = async (id: string, currentDocUrl: string | null) => {
-    if (editPrizes.p1.length !== 3) { toast.error('1st prize is required (3 digits)'); return; }
+    if (!editPrizes.p1) { toast.error('1st prize is required'); return; }
     setEditSaving(true);
     try {
       let document_url: string | null = currentDocUrl;
@@ -236,13 +235,13 @@ export function ResultsPage() {
         const { data } = await api.post('/results/upload-document', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
         document_url = data.url;
       }
-      const comp = editCompNums.filter(v => v.length === 3).map(Number);
+      const comp = editCompNums.filter(Boolean).map(Number);
       await api.patch(`/results/${id}`, {
         winning_number: Number(editPrizes.p1),
-        prize_2: editPrizes.p2.length === 3 ? Number(editPrizes.p2) : null,
-        prize_3: editPrizes.p3.length === 3 ? Number(editPrizes.p3) : null,
-        prize_4: editPrizes.p4.length === 3 ? Number(editPrizes.p4) : null,
-        prize_5: editPrizes.p5.length === 3 ? Number(editPrizes.p5) : null,
+        prize_2: editPrizes.p2 ? Number(editPrizes.p2) : null,
+        prize_3: editPrizes.p3 ? Number(editPrizes.p3) : null,
+        prize_4: editPrizes.p4 ? Number(editPrizes.p4) : null,
+        prize_5: editPrizes.p5 ? Number(editPrizes.p5) : null,
         complementary_numbers: comp,
         document_url,
       });
@@ -281,9 +280,9 @@ export function ResultsPage() {
       const ofType = lotteryBets.filter(b => b.type === type);
       const winners = ofType.filter(b => checkWin(b, winStr, extraPrizes));
       const totalBetCount = ofType.reduce((s, b) => s + Number(b.count), 0);
-      const winCount = winners.reduce((s, b) => s + Number(b.count), 0);
+      const winCount = winners.reduce((s, b) => s + Number(b.count) * getWonPrizes(b, winStr, result).length, 0);
       const betAmount = ofType.reduce((s, b) => s + Number(b.amount), 0);
-      const winAmount = winners.reduce((s, b) => s + Number(b.amount), 0);
+      const winAmount = winners.reduce((s, b) => s + Number(b.amount) * getWonPrizes(b, winStr, result).length, 0);
       return { type, totalBetCount, winCount, betAmount, winAmount, winnerRows: winners };
     }).filter(row => row.totalBetCount > 0);
   }
@@ -301,18 +300,17 @@ export function ResultsPage() {
 
     const rows: any[] = [];
     filteredResults.forEach(r => {
-      const winStr = pad3(r.winning_number);
       const breakdown = getBreakdown(r);
       const lotteryName = r.lotteries?.name || '-';
       const drawTime = new Date(r.lotteries?.draw_time).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
       if (breakdown.length === 0) {
-        rows.push([lotteryName, drawTime, winStr, '-', '-', '-', '-', '-']);
+        rows.push([lotteryName, drawTime, displayNumber(r.winning_number), '-', '-', '-', '-', '-']);
       } else {
         breakdown.forEach((row, i) => {
           rows.push([
             i === 0 ? lotteryName : '',
             i === 0 ? drawTime : '',
-            i === 0 ? winStr : '',
+            i === 0 ? displayNumber(r.winning_number) : '',
             row.type,
             row.totalBetCount,
             `Rs.${Math.round(row.betAmount).toLocaleString('en-IN')}`,
@@ -354,10 +352,10 @@ export function ResultsPage() {
               const p = getPrizes(l.id);
               const comp = getComp(l.id);
               const selectedFile = docFiles[l.id] || null;
-              const ready = p.p1.length === 3;
+              const ready = Boolean(p.p1);
 
               const inp = (val: string, big?: boolean): React.CSSProperties => ({
-                width: '100%', border: `1.5px solid ${big && val.length === 3 ? '#7C3AED' : '#E5E7EB'}`,
+                width: '100%', border: `1.5px solid ${big && val ? '#7C3AED' : '#E5E7EB'}`,
                 borderRadius: 8, padding: big ? '9px 6px' : '6px 4px',
                 fontSize: big ? 20 : 13, fontWeight: 800, letterSpacing: big ? 6 : 3,
                 textAlign: 'center', background: '#F9FAFB', outline: 'none', color: '#111827',
@@ -385,7 +383,7 @@ export function ResultsPage() {
                   {/* 1st prize */}
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 700, color: '#7C3AED', marginBottom: 4 }}>1st Prize ★</div>
-                    <input type="text" inputMode="numeric" maxLength={3} placeholder="000"
+                    <input type="text" inputMode="numeric" maxLength={3} placeholder="0"
                       value={p.p1} onChange={e => setPrize(l.id, 'p1', e.target.value)}
                       style={inp(p.p1, true)} />
                   </div>
@@ -397,7 +395,7 @@ export function ResultsPage() {
                         <div style={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF', marginBottom: 3 }}>
                           {['2nd','3rd','4th','5th'][idx]}
                         </div>
-                        <input type="text" inputMode="numeric" maxLength={3} placeholder="000"
+                        <input type="text" inputMode="numeric" maxLength={3} placeholder="0"
                           value={p[key]} onChange={e => setPrize(l.id, key, e.target.value)}
                           style={inp(p[key])} />
                       </div>
@@ -416,7 +414,7 @@ export function ResultsPage() {
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                       {comp.map((val, idx) => (
                         <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <input type="text" inputMode="numeric" maxLength={3} placeholder="000"
+                          <input type="text" inputMode="numeric" maxLength={3} placeholder="0"
                             value={val} onChange={e => setComp(l.id, idx, e.target.value)}
                             style={{ width: 52, border: '1.5px solid #E5E7EB', borderRadius: 6, padding: '5px 3px', fontSize: 12, fontWeight: 800, letterSpacing: 3, textAlign: 'center', background: '#F9FAFB', outline: 'none', color: '#111827' }} />
                           {(comp.length > 1 || idx > 0) && (
@@ -623,7 +621,7 @@ export function ResultsPage() {
                             {['1st','2nd','3rd','4th','5th'][i]}
                           </span>
                           <div style={{ display: 'flex', gap: 3 }}>
-                            {pad3(prize.value!).split('').map((d, di) => (
+                            {displayNumber(prize.value!).split('').map((d, di) => (
                               <div key={di} style={{
                                 width: i === 0 ? 30 : 24, height: i === 0 ? 36 : 28,
                                 background: i === 0 ? '#F5F3FF' : '#F3F4F6', borderRadius: 7,
@@ -641,7 +639,7 @@ export function ResultsPage() {
                           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                             {compList.map((n, i) => (
                               <span key={i} style={{ padding: '2px 8px', background: '#F0FDF9', border: '1px solid #A7F3D0', borderRadius: 5, fontSize: 12, fontWeight: 800, color: '#059669', letterSpacing: 1 }}>
-                                {pad3(n)}
+                                {displayNumber(n)}
                               </span>
                             ))}
                           </div>
@@ -658,10 +656,10 @@ export function ResultsPage() {
                       {/* 1st prize */}
                       <div style={{ marginBottom: 10 }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: '#7C3AED', marginBottom: 4 }}>1st Prize ★</div>
-                        <input type="text" inputMode="numeric" maxLength={3} placeholder="000"
+                        <input type="text" inputMode="numeric" maxLength={3} placeholder="0"
                           value={editPrizes.p1}
                           onChange={e => setEditPrizes(p => ({ ...p, p1: e.target.value.replace(/\D/g, '').slice(0, 3) }))}
-                          style={{ width: 80, border: `1.5px solid ${editPrizes.p1.length === 3 ? '#7C3AED' : '#E5E7EB'}`, borderRadius: 8, padding: '9px 6px', fontSize: 20, fontWeight: 800, letterSpacing: 6, textAlign: 'center', background: '#fff', outline: 'none', color: '#111827' }}
+                          style={{ width: 80, border: `1.5px solid ${editPrizes.p1 ? '#7C3AED' : '#E5E7EB'}`, borderRadius: 8, padding: '9px 6px', fontSize: 20, fontWeight: 800, letterSpacing: 6, textAlign: 'center', background: '#fff', outline: 'none', color: '#111827' }}
                         />
                       </div>
 
@@ -691,7 +689,7 @@ export function ResultsPage() {
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                           {editCompNums.map((val, idx) => (
                             <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                              <input type="text" inputMode="numeric" maxLength={3} placeholder="000"
+                              <input type="text" inputMode="numeric" maxLength={3} placeholder="0"
                                 value={val}
                                 onChange={e => setEditCompNums(c => { const a = [...c]; a[idx] = e.target.value.replace(/\D/g, '').slice(0, 3); return a; })}
                                 style={{ width: 52, border: '1.5px solid #E5E7EB', borderRadius: 6, padding: '5px 3px', fontSize: 12, fontWeight: 800, letterSpacing: 3, textAlign: 'center', background: '#fff', outline: 'none', color: '#111827' }}
@@ -731,8 +729,8 @@ export function ResultsPage() {
 
                       {/* Actions */}
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => saveEdit(r.id, r.document_url)} disabled={editSaving || editPrizes.p1.length !== 3}
-                          style={{ padding: '7px 20px', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, background: editPrizes.p1.length === 3 ? '#4318FF' : '#F3F4F6', color: editPrizes.p1.length === 3 ? '#fff' : '#9CA3AF', cursor: editPrizes.p1.length === 3 ? 'pointer' : 'not-allowed' }}>
+                        <button onClick={() => saveEdit(r.id, r.document_url)} disabled={editSaving || !editPrizes.p1}
+                          style={{ padding: '7px 20px', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, background: editPrizes.p1 ? '#4318FF' : '#F3F4F6', color: editPrizes.p1 ? '#fff' : '#9CA3AF', cursor: editPrizes.p1 ? 'pointer' : 'not-allowed' }}>
                           {editSaving ? 'Saving…' : 'Save'}
                         </button>
                         <button onClick={cancelEdit}
@@ -804,9 +802,9 @@ export function ResultsPage() {
                                 <span style={{ fontWeight: 700, fontSize: 13, color: '#111827', minWidth: 80 }}>{b.users?.username || '—'}</span>
                                 {b.customer_name && <span style={{ fontSize: 11, color: '#6B7280' }}>{b.customer_name}</span>}
                                 <span style={{ width: 34, height: 26, borderRadius: 7, background: (TYPE_COLOR[b.type] || '#6B7280') + '18', color: TYPE_COLOR[b.type] || '#6B7280', fontWeight: 700, fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{b.type}</span>
-                                <span style={{ fontWeight: 800, fontSize: 16, color: '#111827', letterSpacing: 2 }}>{String(b.number).padStart(3, '0')}</span>
+                                <span style={{ fontWeight: 800, fontSize: 16, color: '#111827', letterSpacing: 2 }}>{displayNumber(b.number)}</span>
                                 <span style={{ fontSize: 12, color: '#6B7280' }}>×{b.count}</span>
-                                <span style={{ marginLeft: 'auto', padding: '3px 12px', background: '#05CD99', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#fff' }}>{getWonPrize(b, winStr, r)} WON</span>
+                                <span style={{ marginLeft: 'auto', padding: '3px 12px', background: '#05CD99', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#fff' }}>{getWonPrizes(b, winStr, r).join(', ')} WON</span>
                               </div>
                             ))}
                           </div>

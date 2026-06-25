@@ -4,6 +4,7 @@ import socket from '../../lib/socket';
 import { Pagination } from '../../components/Pagination';
 
 function fmt(n: number) { return `Rs.${Math.round(n).toLocaleString('en-IN')}`; }
+function displayNumber(n: number | string) { return String(Number(n)); }
 
 const PAGE_SIZE = 20;
 
@@ -69,7 +70,7 @@ export function MonitorPage() {
                     <span style={{ padding: '3px 10px', background: '#F5F3FF', color: '#7C3AED', borderRadius: 8, fontSize: 11, fontWeight: 700 }}>{b.lotteries?.name}</span>
                   </td>
                   <td style={{ padding: '12px 16px', fontWeight: 700, color: '#111827' }}>{b.type}</td>
-                  <td style={{ padding: '12px 16px', fontWeight: 800, fontSize: 16, color: '#111827', letterSpacing: 1 }}>{String(b.number).padStart(3, '0')}</td>
+                  <td style={{ padding: '12px 16px', fontWeight: 800, fontSize: 16, color: '#111827', letterSpacing: 1 }}>{displayNumber(b.number)}</td>
                   <td style={{ padding: '12px 16px', color: '#6B7280', fontWeight: 500 }}>{b.count}</td>
                   <td style={{ padding: '12px 16px', fontWeight: 700, color: '#05CD99' }}>{fmt(b.amount)}</td>
                 </tr>
