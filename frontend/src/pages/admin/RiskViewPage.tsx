@@ -5,8 +5,24 @@ import { AlertTriangle } from 'lucide-react';
 import { Pagination } from '../../components/Pagination';
 
 function fmt(n: number) { return `Rs.${Math.round(n).toLocaleString('en-IN')}`; }
-function displayNumber(n: number | string) { return String(Number(n)); }
+function typeTab(type: string) {
+  return ['A', 'B', 'C'].includes(type)
+    ? 1
+    : ['AB', 'BC', 'AC'].includes(type)
+      ? 2
+      : 3;
+}
 
+function displayNumber(
+  number: number | string,
+  tab?: number,
+  type?: string,
+) {
+  return String(number).padStart(
+    Number(tab ?? typeTab(type || 'SUPER')),
+    '0',
+  );
+}
 const PAGE_SIZE = 20;
 
 export function RiskViewPage() {
@@ -61,7 +77,7 @@ export function RiskViewPage() {
                 return (
                   <tr key={i} style={{ background: highRisk ? '#FFFBF0' : i % 2 === 0 ? '#fff' : '#FAFAFA' }}>
                     <td style={{ ...td, fontWeight: 600 }}>{r.lottery_name}</td>
-                    <td style={{ ...td, fontWeight: 800, fontSize: 18, letterSpacing: 1 }}>{displayNumber(r.number)}</td>
+                    <td style={{ ...td, fontWeight: 800, fontSize: 18, letterSpacing: 1 }}>{displayNumber(r.number, r.tab, r.type)}</td>
                     <td style={td}>
                       <span style={{ padding: '4px 12px', background: '#F5F3FF', color: '#7C3AED', borderRadius: 8, fontSize: 13, fontWeight: 700 }}>{r.type}</span>
                     </td>

@@ -3,8 +3,20 @@ import api from '../../lib/agentApi';
 import { Pagination } from '../../components/Pagination';
 
 function fmt(n: number) { return `Rs.${Math.round(n).toLocaleString('en-IN')}`; }
-function displayNumber(n: number | string) { return String(Number(n)); }
+function typeTab(type: string) {
+  return ['A', 'B', 'C'].includes(type)
+    ? 1
+    : ['AB', 'BC', 'AC'].includes(type)
+      ? 2
+      : 3;
+}
 
+function displayNumber(
+  number: number | string,
+  type?: string,
+) {
+  return String(number).padStart(typeTab(type || 'SUPER'), '0');
+}
 const ALL_TYPES = ['A', 'B', 'C', 'AB', 'BC', 'AC', 'SUPER', 'BOX'];
 const PAGE_SIZE = 20;
 
@@ -92,8 +104,9 @@ export function SalesReportPage() {
                     <td style={{ ...td, color: '#6B7280', fontSize: 13, fontFamily: 'monospace' }}>{b.ticket_id}</td>
                     <td style={{ ...td, fontWeight: 600 }}>{b.lotteries?.name}</td>
                     <td style={{ ...td, fontWeight: 800, color: '#7C3AED' }}>{b.type}</td>
-                    <td style={{ ...td, fontWeight: 800, fontSize: 17, letterSpacing: 1 }}>{displayNumber(b.number)}</td>
-                    <td style={{ ...td, color: '#6B7280' }}>{b.count}</td>
+<td style={{ ...td, fontWeight: 800, fontSize: 17, letterSpacing: 1 }}>
+  {displayNumber(b.number, b.type)}
+</td>                    <td style={{ ...td, color: '#6B7280' }}>{b.count}</td>
                     <td style={{ ...td, fontWeight: 700, color: '#05CD99' }}>{fmt(b.amount)}</td>
                     <td style={{ ...td, color: '#6B7280', fontSize: 13 }}>{new Date(b.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</td>
                   </tr>

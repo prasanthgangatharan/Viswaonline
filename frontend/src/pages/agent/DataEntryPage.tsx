@@ -8,7 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Trash2, Home } from 'lucide-react';
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
-function displayNumber(n: number | string) { return String(Number(n)); }
+function displayNumber(n: number | string) { return String(n); }
 
 function getPermutations(s: string): string[] {
   if (s.length <= 1) return [s];
@@ -140,11 +140,10 @@ export function DataEntryPage() {
         let placedCount = count; // how many will actually be charged
 
         if (max) {
-          const key = `${Number(n)}_${tab}_${t}`;
-          const fromServer = usedCounts[key] || 0;
-          const fromLocal = entries
-            .filter(e => Number(e.number) === Number(n) && e.tab === tab && e.type === t)
-            .reduce((s, e) => s + Number(e.count), 0);
+const key = `${n}_${tab}_${t}`;          const fromServer = usedCounts[key] || 0;
+const fromLocal = entries
+  .filter(e => e.number === n && e.tab === tab && e.type === t)
+  .reduce((s, e) => s + Number(e.count), 0);
           const remaining = max - fromServer - fromLocal;
           const numStr = displayNumber(n);
 
@@ -197,7 +196,13 @@ export function DataEntryPage() {
         lottery_id: lottery.id,
         ticket_id: ticketId,
         customer_name: customer.trim() || undefined,
-        entries: entries.map(e => ({ type: e.type, number: Number(e.number), count: Number(e.count), tab: e.tab, overflow_count: e.overflowCount ?? 0 })),
+entries: entries.map(e => ({
+  type: e.type,
+  number: e.number,
+  count: Number(e.count),
+  tab: e.tab,
+  overflow_count: e.overflowCount ?? 0,
+})),
       });
       const overflows: any[] = result?.overflows ?? [];
       if (overflows.length > 0) {

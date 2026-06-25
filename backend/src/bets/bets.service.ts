@@ -51,8 +51,13 @@ export class BetsService {
     const hasLock = maxByTab.some(m => m !== null);
 
     // Entries that will actually be placed (count may be reduced to fit remaining capacity)
-    type EntryLike = { number: number; tab: number; type: string; count: number };
-    let adjustedEntries: EntryLike[] = [];
+type EntryLike = {
+  number: string;
+  tab: number;
+  type: string;
+  count: number;
+  overflow_count?: number;
+};    let adjustedEntries: EntryLike[] = [];
     const overflowRows: any[] = [];
 
     if (hasLock) {
@@ -125,8 +130,7 @@ export class BetsService {
         }
       }
     } else {
-      adjustedEntries = dto.entries as EntryLike[];
-    }
+adjustedEntries = dto.entries;    }
 
     const prices = [agent.tab1_price, agent.tab2_price, agent.tab3_price];
     const rows = adjustedEntries.map((e) => ({
@@ -241,7 +245,7 @@ export class BetsService {
     const { data, error } = await this.supabase
       .getClient()
       .from('bets')
-      .select('lottery_id, type, number, count, amount, lotteries(name)');
+      .select('lottery_id, type, tab, number, count, amount, lotteries(name)');
     if (error) throw new Error(error.message);
 
     const grouped: Record<string, any> = {};
@@ -253,6 +257,7 @@ export class BetsService {
           lottery_name: (b.lotteries as any)?.name,
           number: b.number,
           type: b.type,
+          tab: b.tab,
           total_count: 0,
           total_amount: 0,
         };

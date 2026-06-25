@@ -4,8 +4,24 @@ import { Pagination } from '../../components/Pagination';
 
 const PAGE_SIZE = 20;
 
-function displayNumber(n: number | string) { return String(Number(n)); }
+function typeTab(type: string) {
+  return ['A', 'B', 'C'].includes(type)
+    ? 1
+    : ['AB', 'BC', 'AC'].includes(type)
+      ? 2
+      : 3;
+}
 
+function displayNumber(
+  number: number | string,
+  tab?: number,
+  type?: string,
+) {
+  return String(number).padStart(
+    Number(tab ?? typeTab(type || 'SUPER')),
+    '0',
+  );
+}
 export function OverflowBetsPage() {
   const [rows, setRows] = useState<any[]>([]);
   const [lotteries, setLotteries] = useState<any[]>([]);
@@ -97,7 +113,7 @@ export function OverflowBetsPage() {
                     <td style={td}>
                       <span style={{ padding: '4px 12px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: '#EBF3FF', color: '#2B73FF' }}>{r.type}</span>
                     </td>
-                    <td style={{ ...td, fontWeight: 800, fontSize: 17, letterSpacing: 2 }}>{displayNumber(r.number)}</td>
+                    <td style={{ ...td, fontWeight: 800, fontSize: 17, letterSpacing: 2 }}>{displayNumber(r.number, r.tab, r.type)}</td>
                     <td style={{ ...td, color: '#6B7280' }}>{r.requested_count}</td>
                     <td style={{ ...td, color: '#05CD99', fontWeight: 700 }}>{r.placed_count}</td>
                     <td style={td}>

@@ -7,7 +7,10 @@ import autoTable from 'jspdf-autotable';
 import { Pagination } from '../../components/Pagination';
 
 function fmt(n: number) { return `Rs.${Math.round(n).toLocaleString('en-IN')}`; }
-function displayNumber(n: number | string) { return String(Number(n)); }
+function typeTab(type: string) { return ['A', 'B', 'C'].includes(type) ? 1 : ['AB', 'BC', 'AC'].includes(type) ? 2 : 3; }
+function displayBetNumber(n: number | string, tab?: number, type?: string) {
+  return String(n).padStart(Number(tab ?? typeTab(type || 'SUPER')), '0');
+}
 
 const PAGE_SIZE = 20;
 
@@ -67,7 +70,7 @@ export function AllBetsPage() {
         b.users?.username || '-',
         b.lotteries?.name || '-',
         b.type,
-        displayNumber(b.number),
+        displayBetNumber(b.number, b.tab, b.type),
         b.count,
         `Rs.${Math.round(b.amount).toLocaleString('en-IN')}`,
         new Date(b.created_at).toLocaleTimeString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true }),
@@ -133,7 +136,7 @@ export function AllBetsPage() {
                       <span style={{ padding: '4px 12px', background: '#F5F3FF', color: '#7C3AED', borderRadius: 8, fontSize: 13, fontWeight: 700 }}>{b.lotteries?.name}</span>
                     </td>
                     <td style={{ ...td, fontWeight: 700 }}>{b.type}</td>
-                    <td style={{ ...td, fontWeight: 800, fontSize: 17, letterSpacing: 1 }}>{displayNumber(b.number)}</td>
+                    <td style={{ ...td, fontWeight: 800, fontSize: 17, letterSpacing: 1 }}>{displayBetNumber(b.number, b.tab, b.type)}</td>
                     <td style={{ ...td, color: '#6B7280' }}>{b.count}</td>
                     <td style={{ ...td, fontWeight: 700, color: '#05CD99' }}>{fmt(b.amount)}</td>
                     <td style={{ ...td, color: '#6B7280', fontSize: 13 }}>{new Date(b.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</td>

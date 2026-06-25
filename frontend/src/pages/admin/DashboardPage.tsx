@@ -7,7 +7,24 @@ import { Pagination } from '../../components/Pagination';
 
 function fmt(n: number) { return `Rs.${Math.round(n).toLocaleString('en-IN')}`; }
 function fmtTime(d: string) { return new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }); }
-function displayNumber(n: number | string) { return String(Number(n)); }
+function typeTab(type: string) {
+  return ['A', 'B', 'C'].includes(type)
+    ? 1
+    : ['AB', 'BC', 'AC'].includes(type)
+      ? 2
+      : 3;
+}
+
+function displayNumber(
+  number: number | string,
+  tab?: number,
+  type?: string,
+) {
+  return String(number).padStart(
+    Number(tab ?? typeTab(type || 'SUPER')),
+    '0',
+  );
+}
 
 const statCards = [
   {
@@ -190,6 +207,13 @@ export function DashboardPage() {
                 <tr><td colSpan={6} style={{ padding: 40, textAlign: 'center', color: '#9CA3AF', fontSize: 14 }}>No bets yet</td></tr>
               )}
               {(stats?.recentBets || []).slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((b: any, i: number) => {
+
+console.log({
+  number: b.number,
+  type: b.type,
+  tab: b.tab,
+  formatted: displayNumber(b.number, b.tab, b.type),
+});
                 const td: React.CSSProperties = { padding: '15px 18px', fontSize: 15, color: '#111827', borderBottom: '1px solid #F3F4F6', verticalAlign: 'middle' };
                 return (
                   <tr key={b.id} style={{ background: i % 2 === 0 ? '#fff' : '#FAFAFA' }}>
@@ -197,7 +221,16 @@ export function DashboardPage() {
                     <td style={td}>
                       <span style={{ padding: '4px 12px', background: '#F5F3FF', color: '#7C3AED', borderRadius: 8, fontSize: 13, fontWeight: 700 }}>{b.lotteries?.name}</span>
                     </td>
-                    <td style={{ ...td, fontWeight: 800, fontSize: 17, letterSpacing: 1 }}>{displayNumber(b.number)}</td>
+<td
+  style={{
+    ...td,
+    fontWeight: 800,
+    fontSize: 17,
+    letterSpacing: 1,
+  }}
+>
+  {displayNumber(b.number, b.tab, b.type)}
+</td>
                     <td style={{ ...td, color: '#6B7280' }}>{b.count}</td>
                     <td style={{ ...td, fontWeight: 700, color: '#059669' }}>{fmt(b.amount)}</td>
                     <td style={{ ...td, color: '#9CA3AF', fontSize: 13 }}>{fmtTime(b.created_at)}</td>

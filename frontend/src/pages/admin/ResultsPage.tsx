@@ -8,8 +8,7 @@ import autoTable from 'jspdf-autotable';
 
 function checkWin(bet: any, winStr: string, extraPrizes: string[] = []): boolean {
   const tabNum = Number(bet.tab);
-  const betNum = String(bet.number).padStart(tabNum, '0');
-  if (tabNum === 1) {
+const betNum = displayNumber(bet.number, bet.tab, bet.type);if (tabNum === 1) {
     const [pd1, pd2, pd3] = winStr.split('');
     if (bet.type === 'A') return betNum === pd1;
     if (bet.type === 'B') return betNum === pd2;
@@ -38,11 +37,27 @@ const ALL_TYPES = ['A', 'B', 'C', 'AB', 'BC', 'AC', 'SUPER', 'BOX'];
 
 function fmt(n: number) { return `Rs.${Math.round(n).toLocaleString('en-IN')}`; }
 function pad3(n: number | string) { return String(n).padStart(3, '0'); }
-function displayNumber(n: number | string) { return String(Number(n)); }
+function typeTab(type: string) {
+  return ['A', 'B', 'C'].includes(type)
+    ? 1
+    : ['AB', 'BC', 'AC'].includes(type)
+      ? 2
+      : 3;
+}
 
+function displayNumber(
+  number: number | string,
+  tab?: number,
+  type?: string,
+) {
+  return String(number).padStart(
+    Number(tab ?? typeTab(type || 'SUPER')),
+    '0',
+  );
+}
 function getWonPrizes(bet: any, winStr: string, r: any): string[] {
   const tabNum = Number(bet.tab);
-  const betNum = String(bet.number).padStart(tabNum, '0');
+const betNum = displayNumber(bet.number, bet.tab, bet.type)
   if (bet.type === 'BOX') return checkWin(bet, winStr) ? ['1st'] : [];
   const prizes = [
     { label: '1st', val: winStr },
@@ -128,8 +143,8 @@ export function ResultsPage() {
   useEffect(() => {
     fetchPending();
     fetchDeclaredData();
-    api.get('/lotteries').then(({ data }) => setLotteries(data || [])).catch(() => {});
-    api.get('/agents').then(({ data }) => setAgents(data || [])).catch(() => {});
+    api.get('/lotteries').then(({ data }) => setLotteries(data || [])).catch(() => { });
+    api.get('/agents').then(({ data }) => setAgents(data || [])).catch(() => { });
   }, [fetchPending, fetchDeclaredData]);
 
   useEffect(() => {
@@ -208,15 +223,15 @@ export function ResultsPage() {
   const startEdit = (r: any) => {
     setEditingId(r.id);
     setEditPrizes({
-      p1: r.winning_number != null ? displayNumber(r.winning_number) : '',
-      p2: r.prize_2 != null ? displayNumber(r.prize_2) : '',
-      p3: r.prize_3 != null ? displayNumber(r.prize_3) : '',
-      p4: r.prize_4 != null ? displayNumber(r.prize_4) : '',
-      p5: r.prize_5 != null ? displayNumber(r.prize_5) : '',
+p1: r.winning_number != null ? pad3(r.winning_number) : '',
+p2: r.prize_2 != null ? pad3(r.prize_2) : '',
+p3: r.prize_3 != null ? pad3(r.prize_3) : '',
+p4: r.prize_4 != null ? pad3(r.prize_4) : '',
+p5: r.prize_5 != null ? pad3(r.prize_5) : '',
     });
     setEditCompNums(
       Array.isArray(r.complementary_numbers) && r.complementary_numbers.length > 0
-        ? r.complementary_numbers.map((n: number) => displayNumber(n))
+        ? r.complementary_numbers.map((n: number) => pad3(n))
         : ['']
     );
     setEditDocFile(null);
@@ -304,13 +319,13 @@ export function ResultsPage() {
       const lotteryName = r.lotteries?.name || '-';
       const drawTime = new Date(r.lotteries?.draw_time).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
       if (breakdown.length === 0) {
-        rows.push([lotteryName, drawTime, displayNumber(r.winning_number), '-', '-', '-', '-', '-']);
+        rows.push([lotteryName, drawTime, pad3(r.winning_number), '-', '-', '-', '-', '-']);
       } else {
         breakdown.forEach((row, i) => {
           rows.push([
             i === 0 ? lotteryName : '',
             i === 0 ? drawTime : '',
-            i === 0 ? displayNumber(r.winning_number) : '',
+            i === 0 ? pad3(r.winning_number) : '',
             row.type,
             row.totalBetCount,
             `Rs.${Math.round(row.betAmount).toLocaleString('en-IN')}`,
@@ -373,9 +388,11 @@ export function ResultsPage() {
                       </div>
                     </div>
                     <button onClick={() => declare(l.id)} disabled={declaring[l.id] || !ready}
-                      style={{ padding: '6px 14px', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 12,
+                      style={{
+                        padding: '6px 14px', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 12,
                         background: ready ? '#4318FF' : '#F3F4F6', color: ready ? '#fff' : '#9CA3AF',
-                        cursor: ready ? 'pointer' : 'not-allowed' }}>
+                        cursor: ready ? 'pointer' : 'not-allowed'
+                      }}>
                       {declaring[l.id] ? '…' : 'Declare'}
                     </button>
                   </div>
@@ -390,10 +407,10 @@ export function ResultsPage() {
 
                   {/* 2nd–5th in 2-col grid */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                    {(['p2','p3','p4','p5'] as (keyof PrizeState)[]).map((key, idx) => (
+                    {(['p2', 'p3', 'p4', 'p5'] as (keyof PrizeState)[]).map((key, idx) => (
                       <div key={key}>
                         <div style={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF', marginBottom: 3 }}>
-                          {['2nd','3rd','4th','5th'][idx]}
+                          {['2nd', '3rd', '4th', '5th'][idx]}
                         </div>
                         <input type="text" inputMode="numeric" maxLength={3} placeholder="0"
                           value={p[key]} onChange={e => setPrize(l.id, key, e.target.value)}
@@ -618,10 +635,10 @@ export function ResultsPage() {
                       {allPrizes.map((prize, i) => (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                           <span style={{ fontSize: 10, fontWeight: 700, color: i === 0 ? '#7C3AED' : '#9CA3AF', minWidth: 26, flexShrink: 0 }}>
-                            {['1st','2nd','3rd','4th','5th'][i]}
+                            {['1st', '2nd', '3rd', '4th', '5th'][i]}
                           </span>
                           <div style={{ display: 'flex', gap: 3 }}>
-                            {displayNumber(prize.value!).split('').map((d, di) => (
+                            {pad3(prize.value!).split('').map((d, di) => (
                               <div key={di} style={{
                                 width: i === 0 ? 30 : 24, height: i === 0 ? 36 : 28,
                                 background: i === 0 ? '#F5F3FF' : '#F3F4F6', borderRadius: 7,
@@ -639,7 +656,7 @@ export function ResultsPage() {
                           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                             {compList.map((n, i) => (
                               <span key={i} style={{ padding: '2px 8px', background: '#F0FDF9', border: '1px solid #A7F3D0', borderRadius: 5, fontSize: 12, fontWeight: 800, color: '#059669', letterSpacing: 1 }}>
-                                {displayNumber(n)}
+                                {pad3(n)}
                               </span>
                             ))}
                           </div>
@@ -665,9 +682,9 @@ export function ResultsPage() {
 
                       {/* 2nd–5th prizes */}
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
-                        {(['p2','p3','p4','p5'] as (keyof PrizeState)[]).map((key, idx) => (
+                        {(['p2', 'p3', 'p4', 'p5'] as (keyof PrizeState)[]).map((key, idx) => (
                           <div key={key}>
-                            <div style={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF', marginBottom: 3 }}>{['2nd','3rd','4th','5th'][idx]}</div>
+                            <div style={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF', marginBottom: 3 }}>{['2nd', '3rd', '4th', '5th'][idx]}</div>
                             <input type="text" inputMode="numeric" maxLength={3} placeholder="—"
                               value={editPrizes[key]}
                               onChange={e => setEditPrizes(p => ({ ...p, [key]: e.target.value.replace(/\D/g, '').slice(0, 3) }))}
@@ -802,8 +819,16 @@ export function ResultsPage() {
                                 <span style={{ fontWeight: 700, fontSize: 13, color: '#111827', minWidth: 80 }}>{b.users?.username || '—'}</span>
                                 {b.customer_name && <span style={{ fontSize: 11, color: '#6B7280' }}>{b.customer_name}</span>}
                                 <span style={{ width: 34, height: 26, borderRadius: 7, background: (TYPE_COLOR[b.type] || '#6B7280') + '18', color: TYPE_COLOR[b.type] || '#6B7280', fontWeight: 700, fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{b.type}</span>
-                                <span style={{ fontWeight: 800, fontSize: 16, color: '#111827', letterSpacing: 2 }}>{displayNumber(b.number)}</span>
-                                <span style={{ fontSize: 12, color: '#6B7280' }}>×{b.count}</span>
+                                <span
+                                  style={{
+                                    fontWeight: 800,
+                                    fontSize: 16,
+                                    color: '#111827',
+                                    letterSpacing: 2,
+                                  }}
+                                >
+                                  {displayNumber(b.number, b.tab, b.type)}
+                                </span>                                <span style={{ fontSize: 12, color: '#6B7280' }}>×{b.count}</span>
                                 <span style={{ marginLeft: 'auto', padding: '3px 12px', background: '#05CD99', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#fff' }}>{getWonPrizes(b, winStr, r).join(', ')} WON</span>
                               </div>
                             ))}

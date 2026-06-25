@@ -4,35 +4,71 @@ import socket from '../../lib/socket';
 import toast from 'react-hot-toast';
 import { Trophy, ChevronUp, ChevronDown, FileText, ExternalLink } from 'lucide-react';
 
-function checkWin(bet: any, winStr: string, extraPrizes: string[] = []): boolean {
-  const tabNum = Number(bet.tab);
-  const betNum = String(bet.number).padStart(tabNum, '0');
-  if (tabNum === 1) {
-    const [pd1, pd2, pd3] = winStr.split('');
-    if (bet.type === 'A') return betNum === pd1;
-    if (bet.type === 'B') return betNum === pd2;
-    if (bet.type === 'C') return betNum === pd3;
-    return false;
-  } else if (tabNum === 2) {
-    const [pd1, pd2, pd3] = winStr.split('');
-    if (bet.type === 'AB') return betNum === pd1 + pd2;
-    if (bet.type === 'BC') return betNum === pd2 + pd3;
-    if (bet.type === 'AC') return betNum === pd1 + pd3;
-    return false;
-  } else if (tabNum === 3) {
-    const sort = (s: string) => s.split('').sort().join('');
-    if (bet.type === 'SUPER') return [winStr, ...extraPrizes].some(p => betNum === p);
-    if (bet.type === 'BOX') return sort(betNum) === sort(winStr);
+function checkWin(
+  bet: any,
+  winStr: string,
+  extraPrizes: string[] = [],
+): boolean {
+  const betNum = displayNumber(bet.number, bet.type);
+
+  const [pd1, pd2, pd3] = winStr.split('');
+
+  switch (bet.type) {
+    case 'A':
+      return betNum === pd1;
+
+    case 'B':
+      return betNum === pd2;
+
+    case 'C':
+      return betNum === pd3;
+
+    case 'AB':
+      return betNum === pd1 + pd2;
+
+    case 'BC':
+      return betNum === pd2 + pd3;
+
+    case 'AC':
+      return betNum === pd1 + pd3;
+
+    case 'SUPER':
+      return [winStr, ...extraPrizes].includes(betNum);
+
+    case 'BOX': {
+      const sort = (s: string) => s.split('').sort().join('');
+      return sort(betNum) === sort(winStr);
+    }
+
+    default:
+      return false;
   }
-  return false;
 }
 
 function pad3(n: number | string) { return String(n).padStart(3, '0'); }
-function displayNumber(n: number | string) { return String(Number(n)); }
+function displayNumber(
+  number: number | string,
+  type?: string,
+) {
+  const value = String(number);
 
+  // Preserve user-entered leading zeros
+  if (value.startsWith('0')) {
+    return value;
+  }
+
+  const digits =
+    ['A', 'B', 'C'].includes(type || '')
+      ? 1
+      : ['AB', 'BC', 'AC'].includes(type || '')
+        ? 2
+        : 3;
+
+  return value.length >= digits ? value : value.padStart(digits, '0');
+}
 function getWonPrizes(bet: any, winStr: string, r: any): string[] {
   const tabNum = Number(bet.tab);
-  const betNum = String(bet.number).padStart(tabNum, '0');
+  const betNum = displayNumber(bet.number, bet.type);
   if (bet.type === 'BOX') return checkWin(bet, winStr) ? ['1st'] : [];
   const prizes = [
     { label: '1st', val: winStr },
@@ -180,7 +216,7 @@ export function ShopResultPage() {
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: i === 0 ? '#7C3AED' : '#9CA3AF', minWidth: 24, flexShrink: 0 }}>{prize.label}</span>
                     <div style={{ display: 'flex', gap: 3 }}>
-                      {displayNumber(prize.value!).split('').map((d, di) => (
+                      {pad3(prize.value!).split('').map((d, di) => (
                         <div key={di} style={{ width: i === 0 ? 28 : 22, height: i === 0 ? 34 : 26, background: i === 0 ? '#F5F3FF' : '#E5E7EB', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <span style={{ fontSize: i === 0 ? 15 : 12, fontWeight: 800, color: i === 0 ? '#7C3AED' : '#111827' }}>{d}</span>
                         </div>
@@ -194,7 +230,7 @@ export function ShopResultPage() {
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                       {r.complementary_numbers.map((n: number, i: number) => (
                         <span key={i} style={{ padding: '2px 7px', background: '#F0FDF9', border: '1px solid #A7F3D0', borderRadius: 5, fontSize: 11, fontWeight: 800, color: '#059669', letterSpacing: 1 }}>
-                          {displayNumber(n)}
+                          {pad3(n)}
                         </span>
                       ))}
                     </div>
@@ -210,7 +246,7 @@ export function ShopResultPage() {
                   return (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fff', borderRadius: 12, padding: '10px 14px', boxShadow: '0 1px 6px rgba(112,144,176,0.08)' }}>
                       <span style={{ width: 30, height: 30, borderRadius: 8, background: color + '18', color, fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{b.type}</span>
-                      <span style={{ fontWeight: 800, fontSize: 18, color: '#111827', letterSpacing: 2 }}>{displayNumber(b.number)}</span>
+                      <span style={{ fontWeight: 800, fontSize: 18, color: '#111827', letterSpacing: 2 }}>{displayNumber(b.number, b.type)}</span>
                       <span style={{ fontSize: 12, color: '#6B7280' }}>x{b.count}</span>
                       {b.customer_name && <span style={{ fontSize: 11, color: '#111827', background: '#F9FAFB', borderRadius: 6, padding: '2px 8px', fontWeight: 600 }}>{b.customer_name}</span>}
                       <span style={{ marginLeft: 'auto', padding: '3px 12px', background: '#05CD99', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#fff' }}>{getWonPrizes(b, winStr, r).join(', ')} WON</span>
